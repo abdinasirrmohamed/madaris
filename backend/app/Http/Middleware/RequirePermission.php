@@ -1,0 +1,4 @@
+<?php
+namespace App\Http\Middleware;
+use Closure;use Illuminate\Http\Request;use Illuminate\Support\Facades\DB;
+class RequirePermission{public function handle(Request $r,Closure $next,string $permission){$u=$r->user();$direct=$u->Permissions??[];if(in_array('*',$direct,true)||in_array($permission,$direct,true))return $next($r);$has=DB::table('UserRoles')->join('Roles','UserRoles.RoleId','=','Roles.RoleId')->join('RolePermissions','Roles.RoleId','=','RolePermissions.RoleId')->join('Permissions','RolePermissions.PermissionId','=','Permissions.PermissionId')->where('UserRoles.UserId',$u->UserId)->where(fn($q)=>$q->where('Roles.TenantId',$u->TenantId)->orWhereNull('Roles.TenantId'))->where('Permissions.PermissionKey',$permission)->exists();abort_unless($has,403,'You do not have permission to perform this action.');return $next($r);}}
