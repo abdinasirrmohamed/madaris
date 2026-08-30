@@ -3,97 +3,62 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { Router } from '@angular/router';
 import { AuthService } from '../core/auth.service';
 
-// Calm, accessible sign-in experience for desktop and mobile.
-
 @Component({
   standalone: true,
   imports: [ReactiveFormsModule],
   template: `
-    <main class="login-shell">
-      <section class="brand-panel">
-        <div class="brand-content">
-          <img class="logo" src="/assets/branding/madaaris-logo-transparent.png" alt="Madaaris logo" />
-          <p class="kicker">MADARIS SCHOOL SYSTEM</p>
-          <h1>Maamul dugsi<br /><span>si fudud.</span></h1>
-          <p class="brand-copy">Hal meel uga maamul ardayda, macallimiinta, lacagaha iyo horumarka dugsigaaga.</p>
-          <div class="trust"><b>✓</b><p><strong>Ammaan & la isku halayn karo</strong><small>Xogta dugsigaaga si buuxda ayaa loo ilaaliyaa</small></p></div>
-        </div>
-        <blockquote>“Barashada Qur'aanku waa iftiin.”</blockquote>
-      </section>
+    <main class="login-page">
+      <div class="orb"></div>
+      <section class="card">
+        <header>
+          <div class="logo-ring"><img src="/assets/branding/madaaris-logo-transparent.png" alt="Madaaris logo" /></div>
+          <p class="brand">MADARIS SCHOOL MANAGEMENT</p>
+          <h1>Ku soo dhawoow</h1>
+          <p class="intro">Geli xogtaada si aad u gasho nidaamka maamulka dugsiga.</p>
+        </header>
 
-      <section class="form-panel">
-        <div class="mobile-brand"><img src="/assets/branding/madaaris-logo-transparent.png" alt="" /><strong>Madaaris</strong></div>
-        <div class="card">
-          <header>
-            <span class="welcome">👋</span>
-            <p class="eyebrow">SOO DHAWOOW</p>
-            <h2>Gal akoonkaaga</h2>
-            <p class="muted">Geli email-ka iyo password-ka si aad u sii wadato.</p>
-          </header>
-          <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
-            <label for="email">Email address</label>
-            <div class="field" [class.invalid]="form.controls.Email.touched && form.controls.Email.invalid">
-              <svg viewBox="0 0 24 24"><path d="M4 6h16v12H4zM4 7l8 6 8-6" /></svg>
-              <input id="email" type="email" formControlName="Email" placeholder="admin@school.so" autocomplete="email" />
-            </div>
-            @if (form.controls.Email.touched && form.controls.Email.invalid) { <small class="field-error">Fadlan geli email sax ah.</small> }
+        <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+          <label for="email">Email-kaaga</label>
+          <div class="field" [class.invalid]="form.controls.Email.touched && form.controls.Email.invalid">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M6 20v-3a6 6 0 0112 0v3"/></svg>
+            <input id="email" type="email" formControlName="Email" placeholder="admin@school.so" autocomplete="email" />
+          </div>
+          @if (form.controls.Email.touched && form.controls.Email.invalid) { <small class="field-error">Fadlan geli email sax ah.</small> }
 
-            <div class="password-title"><label for="password">Password</label><small>Akawnkaaga gaarka ah</small></div>
-            <div class="field" [class.invalid]="form.controls.Password.touched && form.controls.Password.invalid">
-              <svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
-              <input id="password" [type]="showPassword() ? 'text' : 'password'" formControlName="Password" placeholder="••••••••" autocomplete="current-password" />
-              <button type="button" class="show" (click)="showPassword.set(!showPassword())">{{ showPassword() ? 'Qari' : 'Muuji' }}</button>
-            </div>
-            @if (error()) { <div class="error" role="alert"><b>!</b>{{ error() }}</div> }
-            <button class="submit" [disabled]="form.invalid || loading()">
-              @if (loading()) { <i></i><span>Waa lagu gelinayaa…</span> } @else { <span>Gal dashboard-ka</span><b>→</b> }
-            </button>
-          </form>
-          <p class="secure">◆ &nbsp; Gelitaankaaga waa ammaan oo la ilaaliyay</p>
-        </div>
-        <footer>© {{ year }} Madaaris · School Management System</footer>
+          <label for="password">Furaha sirta</label>
+          <div class="field" [class.invalid]="form.controls.Password.touched && form.controls.Password.invalid">
+            <svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
+            <input id="password" [type]="showPassword() ? 'text' : 'password'" formControlName="Password" placeholder="Geli furaha sirta" autocomplete="current-password" />
+            <button type="button" class="show" (click)="showPassword.set(!showPassword())">{{ showPassword() ? 'Qari' : 'Muuji' }}</button>
+          </div>
+
+          <label class="remember"><input type="checkbox" /> <span>I xasuuso</span></label>
+          @if (error()) { <div class="error" role="alert"><b>!</b><span>{{ error() }}</span></div> }
+
+          <button class="submit" [disabled]="form.invalid || loading()">
+            @if (loading()) { <i></i><span>Waa lagu gelinayaa…</span> } @else { <span>Gal Nidaamka</span> }
+          </button>
+        </form>
       </section>
+      <footer>© {{ year }} Madaaris School Management System <span>•</span> Version 1.0</footer>
     </main>
   `,
   styles: [`
-    :host{display:block;min-height:100vh;font-family:Inter,ui-sans-serif,system-ui,sans-serif;color:#112d2a}*{box-sizing:border-box}
-    .login-shell{min-height:100vh;display:grid;grid-template-columns:minmax(420px,.92fr) minmax(520px,1.08fr);background:#f7faf9;overflow:hidden}
-    .brand-panel{position:relative;padding:clamp(42px,7vh,76px) clamp(44px,7vw,104px);color:#fff;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;background:linear-gradient(145deg,#042f2b,#075d54 62%,#087368)}
-    .brand-panel:before{content:'';position:absolute;width:460px;height:460px;border:1px solid #ffffff18;border-radius:50%;right:-250px;top:-190px;box-shadow:0 0 0 70px #ffffff08,0 0 0 140px #ffffff05}.brand-panel:after{content:'';position:absolute;inset:auto -10% -25% 15%;height:50%;background:radial-gradient(ellipse,#22c5a62c,transparent 65%)}
-    .brand-content,blockquote{position:relative;z-index:1}.logo{width:115px;height:96px;object-fit:contain;filter:drop-shadow(0 12px 18px #001b1880);margin-bottom:32px}.kicker{color:#72dfcf;letter-spacing:.18em;font-size:11px;font-weight:850;margin:0 0 18px}
-    h1{font-size:clamp(43px,5vw,68px);letter-spacing:-.055em;line-height:1.04;margin:0}h1 span{color:#e7bd69}.brand-copy{max-width:490px;margin:24px 0 38px;color:#c1ded9;font-size:16px;line-height:1.75}
-    .trust{display:flex;gap:14px;align-items:center;padding-top:25px;border-top:1px solid #ffffff1c;max-width:470px}.trust>b{flex:0 0 38px;height:38px;display:grid;place-items:center;border-radius:12px;color:#062f2b;background:#72dfcf}.trust p{margin:0}.trust strong,.trust small{display:block}.trust strong{font-size:13px;margin-bottom:4px}.trust small{color:#94c7c0;font-size:11px}
-    blockquote{margin:35px 0 0;padding-left:17px;border-left:3px solid #e7bd69;color:#deece9;font:italic 18px Georgia,serif}
-    .form-panel{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:50px;background:radial-gradient(circle at 100% 0,#0da58b0d,transparent 35%),radial-gradient(circle at 30% 100%,#dba94612,transparent 30%)}.card{width:min(100%,440px);animation:enter .65s cubic-bezier(.2,.8,.2,1) both}
-    header{margin-bottom:34px}.welcome{display:grid;place-items:center;width:42px;height:42px;background:#eaf8f5;border-radius:14px;font-size:20px;margin-bottom:20px}.eyebrow{margin:0 0 9px;color:#078274;font-weight:850;letter-spacing:.16em;font-size:11px}.card h2{font-size:34px;letter-spacing:-.04em;margin:0 0 10px;color:#103632}.muted{color:#718783;margin:0;line-height:1.6;font-size:14px}
-    form>label,.password-title label{display:block;font-size:13px;font-weight:750;margin:20px 0 9px;color:#294743}.password-title{display:flex;align-items:end;justify-content:space-between;margin-top:21px}.password-title label{margin:0}.password-title small{font-size:10px;color:#94a5a2}
-    .field{height:54px;display:flex;align-items:center;gap:11px;border:1px solid #d9e5e2;border-radius:13px;background:#fff;padding:0 15px;transition:.2s}.field:focus-within{border-color:#0b8a7c;box-shadow:0 0 0 4px #0b8a7c16;transform:translateY(-1px)}.field.invalid{border-color:#d85b52}.field svg{width:19px;height:19px;fill:none;stroke:#78908c;stroke-width:1.7}.field input{min-width:0;flex:1;border:0;outline:0;background:transparent;font:inherit;font-size:14px;color:#173a36}.field input::placeholder{color:#a9b8b5}.show{border:0;background:none;color:#087c70;font-size:11px;font-weight:800;cursor:pointer;padding:6px}.field-error{display:block;color:#b23a33;font-size:11px;margin-top:6px}
-    .error{display:flex;align-items:center;gap:9px;color:#a72d25;background:#fff0ef;border:1px solid #ffd2ce;padding:11px 13px;border-radius:10px;font-size:12px;margin-top:16px}.error b{width:19px;height:19px;display:grid;place-items:center;border-radius:50%;background:#c8463d;color:#fff}
-    .submit{position:relative;width:100%;height:55px;margin-top:27px;padding:0 18px;border:0;border-radius:13px;background:linear-gradient(100deg,#08786d,#079383);box-shadow:0 12px 26px #08786d30;color:#fff;font:inherit;font-weight:800;display:flex;align-items:center;justify-content:center;gap:10px;cursor:pointer;transition:.2s}.submit>b{position:absolute;right:19px;font-size:21px}.submit:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 16px 30px #08786d42}.submit:disabled{opacity:.62;cursor:not-allowed}.submit i{width:18px;height:18px;border:2px solid #ffffff55;border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
-    .secure{text-align:center;color:#869793;font-size:10px;margin-top:22px}.secure:first-letter{color:#0b9b8b}.mobile-brand{display:none}.form-panel footer{position:absolute;bottom:25px;color:#9aa9a6;font-size:10px}
-    @keyframes enter{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}@keyframes spin{to{transform:rotate(360deg)}}
-    @media(max-width:900px){.login-shell{grid-template-columns:1fr}.brand-panel{display:none}.form-panel{min-height:100vh;padding:34px 24px 70px}.mobile-brand{display:flex;align-items:center;gap:9px;position:absolute;top:24px;left:26px;color:#075d54}.mobile-brand img{width:43px;height:37px;object-fit:contain}.mobile-brand strong{font-size:18px}.card{margin-top:45px}}
-    @media(max-width:480px){.form-panel{padding-inline:20px}.card h2{font-size:30px}header{margin-bottom:28px}.welcome{margin-bottom:14px}.password-title small{display:none}}
-    @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}}
+    :host{display:block;min-height:100vh;font-family:Inter,ui-sans-serif,system-ui,sans-serif;color:#10213a}*{box-sizing:border-box}
+    .login-page{position:relative;isolation:isolate;min-height:100vh;display:grid;place-items:center;padding:55px 20px 75px;overflow:hidden;background-color:#fbfdff;background-image:linear-gradient(#dbe9fb 1px,transparent 1px),linear-gradient(90deg,#dbe9fb 1px,transparent 1px);background-size:172px 172px}
+    .login-page:before,.login-page:after{content:'';position:absolute;z-index:-2;border-radius:50%;filter:blur(1px)}.login-page:before{width:540px;height:540px;background:#e8f2ff;left:50%;top:50%;transform:translate(-50%,-46%)}.login-page:after{width:410px;height:410px;border:1px solid #d6e7fb;left:50%;top:50%;transform:translate(-50%,-46%)}
+    .card{position:relative;width:min(100%,500px);min-height:590px;padding:37px 44px 42px;border:1px solid #bcd8f8;border-radius:24px;background:rgba(249,252,255,.92);box-shadow:0 24px 70px #1d64b31a;backdrop-filter:blur(10px);animation:enter .6s cubic-bezier(.2,.8,.2,1) both}
+    header{text-align:center}.logo-ring{width:92px;height:92px;margin:0 auto 16px;display:grid;place-items:center;border-radius:50%;background:#fff;box-shadow:0 10px 30px #1d64b315}.logo-ring img{width:80px;height:70px;object-fit:contain;filter:drop-shadow(0 5px 7px #1c3c6b25)}.brand{margin:0 0 21px;color:#1267e8;font-size:10px;font-weight:900;letter-spacing:.03em}h1{margin:0;color:#0e1f39;font-size:31px;letter-spacing:-.045em;text-shadow:0 2px 2px #13345a28}.intro{margin:7px 0 37px;color:#71859e;font-size:11px}
+    form>label:not(.remember){display:block;margin:18px 0 8px;color:#49627f;font-size:10px;font-weight:800}.field{height:52px;display:flex;align-items:center;gap:12px;padding:0 15px;border:1px solid #bfd6f5;border-radius:9px;background:#eef5ff;transition:border-color .2s,box-shadow .2s,transform .2s}.field:focus-within{border-color:#2879ed;box-shadow:0 0 0 4px #2879ed18;transform:translateY(-1px)}.field.invalid{border-color:#dc5b55}.field svg{width:18px;height:18px;fill:none;stroke:#1671f4;stroke-width:1.7}.field input{min-width:0;flex:1;border:0;outline:0;background:transparent;color:#17385f;font:inherit;font-size:11px}.field input::placeholder{color:#7f98b7}.show{border:0;background:transparent;color:#176bdc;font-size:9px;font-weight:850;cursor:pointer}.remember{display:flex;align-items:center;gap:8px;margin:20px 0 0;color:#6c829d;font-size:9px;font-weight:700}.remember input{appearance:none;width:18px;height:18px;margin:0;border:1px solid #b8d2f3;border-radius:6px;background:white;cursor:pointer}.remember input:checked{background:#2074e9;border-color:#2074e9;box-shadow:inset 0 0 0 4px white}.field-error{display:block;margin-top:5px;color:#b43a32;font-size:9px}.error{display:flex;align-items:center;gap:8px;margin-top:13px;padding:9px 11px;border:1px solid #ffd1ce;border-radius:8px;background:#fff0ef;color:#a72d25;font-size:9px}.error b{width:18px;height:18px;display:grid;place-items:center;border-radius:50%;background:#c9443b;color:white}
+    .submit{width:100%;height:53px;margin-top:21px;border:0;border-radius:9px;background:linear-gradient(90deg,#2479ef,#1769df);box-shadow:0 13px 28px #1769df3d;color:white;font:inherit;font-size:11px;font-weight:850;display:flex;align-items:center;justify-content:center;gap:9px;cursor:pointer;transition:transform .2s,box-shadow .2s}.submit:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 17px 32px #1769df4d}.submit:disabled{opacity:.62;cursor:not-allowed}.submit i{width:17px;height:17px;border:2px solid #ffffff55;border-top-color:white;border-radius:50%;animation:spin .7s linear infinite}
+    footer{position:absolute;bottom:24px;color:#7892b3;font-size:8px;text-align:center}footer span{margin:0 9px;color:#9bb5d5}@keyframes enter{from{opacity:0;transform:translateY(18px) scale(.985)}to{opacity:1;transform:none}}@keyframes spin{to{transform:rotate(360deg)}}
+    @media(max-width:560px){.login-page{padding:20px 14px 60px;background-size:110px 110px}.card{min-height:0;padding:28px 22px 31px;border-radius:19px}.logo-ring{width:78px;height:78px}.logo-ring img{width:68px;height:61px}h1{font-size:27px}.intro{margin-bottom:27px}footer{bottom:16px}.login-page:before{width:430px;height:430px}}
+    @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
   `],
 })
 export class LoginComponent {
-  loading = signal(false);
-  error = signal('');
-  showPassword = signal(false);
-  readonly year = new Date().getFullYear();
-  form = new FormGroup({
-    Email: new FormControl('', [Validators.required, Validators.email]),
-    Password: new FormControl('', Validators.required),
-    DeviceName: new FormControl('Madaaris Web'),
-  });
-  constructor(private auth: AuthService, private router: Router) {}
-  submit() {
-    if (this.form.invalid || this.loading()) { this.form.markAllAsTouched(); return; }
-    this.loading.set(true); this.error.set('');
-    this.auth.login(this.form.getRawValue()).subscribe({
-      next: () => this.router.navigateByUrl(this.auth.user()?.TenantId === null ? '/platform' : '/dashboard'),
-      error: (e) => { this.loading.set(false); this.error.set(e.error?.message || 'Gelitaanka ma suurtagelin. Dib u hubi xogtaada.'); },
-    });
-  }
+  loading=signal(false);error=signal('');showPassword=signal(false);readonly year=new Date().getFullYear();
+  form=new FormGroup({Email:new FormControl('',[Validators.required,Validators.email]),Password:new FormControl('',Validators.required),DeviceName:new FormControl('Madaaris Web')});
+  constructor(private auth:AuthService,private router:Router){}
+  submit(){if(this.form.invalid||this.loading()){this.form.markAllAsTouched();return}this.loading.set(true);this.error.set('');this.auth.login(this.form.getRawValue()).subscribe({next:()=>this.router.navigateByUrl(this.auth.user()?.TenantId===null?'/platform':'/dashboard'),error:e=>{this.loading.set(false);this.error.set(e.error?.message||'Gelitaanka ma suurtagelin. Dib u hubi xogtaada.')}})}
 }
