@@ -38,4 +38,15 @@ export class AuthService {
   token() {
     return localStorage.getItem('madaaris_token');
   }
+  markPasswordChanged() {
+    const user = this.user();
+    if (!user) return;
+    const updated = { ...user, MustChangePassword: false };
+    localStorage.setItem('madaaris_user', JSON.stringify(updated));
+    this.user.set(updated);
+  }
+  updateUser(user: AuthenticatedUser) {
+    localStorage.setItem('madaaris_user', JSON.stringify(user));
+    this.user.set(user);
+  }
 }

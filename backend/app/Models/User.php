@@ -25,7 +25,7 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = [
-        'TenantId', 'Name', 'Email', 'Password', 'Status', 'Permissions',
+        'TenantId', 'Name', 'Email', 'ProfilePhotoPath', 'Password', 'MustChangePassword', 'Status', 'Permissions',
     ];
 
     /**
@@ -48,6 +48,7 @@ class User extends Authenticatable
         return [
             'EmailVerifiedAt' => 'datetime',
             'Password' => 'hashed',
+            'MustChangePassword' => 'boolean',
             'Permissions' => 'array',
         ];
     }

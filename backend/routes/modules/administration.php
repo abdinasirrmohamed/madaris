@@ -5,7 +5,8 @@ use App\Http\Controllers\Api\SystemController;
 use Illuminate\Support\Facades\Route;
 
 Route::match(['get', 'put'], 'settings', [SystemController::class, 'settings'])->middleware('permission:settings.manage');
-Route::match(['get', 'post'], 'feedback', [SystemController::class, 'feedback']);
+Route::get('feedback', [SystemController::class, 'feedback'])->middleware('permission:feedback.manage');
+Route::post('feedback', [SystemController::class, 'feedback']);
 Route::put('feedback/{feedback}', [SystemController::class, 'respond'])->middleware('permission:feedback.manage');
 Route::match(['get', 'post'], 'sms/templates', [SystemController::class, 'smsTemplates'])->middleware('permission:sms.send');
 Route::match(['get', 'put'], 'sms/settings', [SystemController::class, 'smsSettings'])->middleware('permission:sms.configure');

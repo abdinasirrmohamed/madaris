@@ -28,6 +28,31 @@ class AcademicService
             return DB::table('TimeTables')->join('Classes', 'TimeTables.ClassId', '=', 'Classes.ClassId')->join('Subjects', 'TimeTables.SubjectId', '=', 'Subjects.SubjectId')->leftJoin('Users', 'TimeTables.TeacherId', '=', 'Users.UserId')->where('TimeTables.TenantId', $this->tenant->id())->select('TimeTables.*', 'Classes.Name as ClassName', 'Subjects.SubjectName', 'Users.Name as TeacherName')->orderBy('DayOfWeek')->orderBy('StartTime')->get()->all();
         }if ($resource === 'lessons') {
             return DB::table('Lessons')->join('Subjects', 'Lessons.SubjectId', '=', 'Subjects.SubjectId')->where('Lessons.TenantId', $this->tenant->id())->select('Lessons.*', 'Subjects.SubjectName')->orderBy('Subjects.SubjectName')->orderBy('SortOrder')->get()->all();
+        }if ($resource === 'levels') {
+            $tenantId = $this->tenant->id();
+
+            return DB::table('Levels as levels')
+                ->where('levels.TenantId', $tenantId)
+                ->select('levels.*')
+                ->selectSub(
+                    DB::table('Classes as classes')
+                        ->selectRaw('COUNT(*)')
+                        ->whereColumn('classes.LevelId', 'levels.LevelId')
+                        ->where('classes.TenantId', $tenantId),
+                    'ClassesCount'
+                )
+                ->selectSub(
+                    DB::table('Enrollments as enrollments')
+                        ->join('Classes as enrolled_classes', 'enrollments.ClassId', '=', 'enrolled_classes.ClassId')
+                        ->selectRaw('COUNT(DISTINCT enrollments.StudentId)')
+                        ->whereColumn('enrolled_classes.LevelId', 'levels.LevelId')
+                        ->where('enrollments.TenantId', $tenantId)
+                        ->where('enrollments.Status', 'Active'),
+                    'StudentsCount'
+                )
+                ->orderBy('levels.SequenceNo')
+                ->get()
+                ->all();
         }$query = DB::table($table)->where('TenantId', $this->tenant->id());
         if (($filters['BranchId'] ?? null) && in_array($resource, ['classes'])) {
             $query->where('BranchId', $filters['BranchId']);

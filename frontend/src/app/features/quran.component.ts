@@ -1,6 +1,7 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ApiService } from '../core/api.service';
+import { ActivatedRoute } from '@angular/router';
 @Component({
   standalone: true,
   imports: [ReactiveFormsModule],
@@ -567,9 +568,16 @@ export class QuranComponent implements OnInit {
     MistakeType: new FormControl(''),
     OccurrenceCount: new FormControl(1),
   });
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private route: ActivatedRoute) {}
   ngOnInit() {
-    this.loadAssignments();
+    this.route.paramMap.subscribe((params) => {
+      const view = params.get('view');
+      const next = ['assignments', 'progress', 'mistakes', 'surahs'].includes(view || '') ? view! : 'assignments';
+      this.tab.set(next);
+      if (next === 'assignments') this.loadAssignments();
+      if (next === 'progress') this.loadProgress();
+      if (next === 'mistakes') this.loadMistakes();
+    });
     this.api.get<any>('/quran/surahs').subscribe((r) => this.surahs.set(r.data));
     this.api.get<any>('/students', { per_page: '100' }).subscribe((r) => this.students.set(r.data));
     this.api.get<any>('/branches').subscribe((r) => {

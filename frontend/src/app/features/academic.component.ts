@@ -1,5 +1,6 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { ApiService } from '../core/api.service';
 
 type Resource =
@@ -7,32 +8,21 @@ type Resource =
 @Component({
   standalone: true,
   imports: [ReactiveFormsModule],
-  template: ` <header class="page">
+  template: ` <header class="page academic-page">
       <div>
-        <p>ACADEMIC MANAGEMENT</p>
-        <h1>Academic setup</h1>
-        <span
-          >Manage the structure used by enrollment, attendance, Qur'an lessons and
-          examinations.</span
-        >
+        <h1>{{ pageTitle() }}</h1>
+        <span>{{ pageDescription() }}</span>
       </div>
-      <button (click)="openCreate()">＋ Add {{ label() }}</button>
+      <button (click)="openCreate()">＋ Add New</button>
     </header>
-    <nav class="tabs">
-      @for (tab of tabs; track tab.key) {
-        <button [class.active]="resource() === tab.key" (click)="select(tab.key)">
-          {{ tab.label }}
-        </button>
-      }
-    </nav>
     @if (message()) {
       <p class="notice">{{ message() }}</p>
     }
     <section class="content">
       <article class="table-card">
         <header>
-          <h2>{{ label() }}</h2>
-          <label>⌕ <input [formControl]="search" placeholder="Search records" /></label>
+          <h2>All {{ label() }}</h2>
+          <label><input [formControl]="search" placeholder="Search" /></label>
         </header>
         @if (loading()) {
           <div class="empty">Loading records…</div>
@@ -42,30 +32,32 @@ type Resource =
             ><span>Use “Add {{ label() }}” to create the first record.</span>
           </div>
         } @else {
-          <table>
+          <table [class.levels-table]="resource() === 'levels'" class="academic-table">
             <thead>
               <tr>
-                @for (column of columns(); track column.key) {
-                  <th>{{ column.label }}</th>
+                @if (resource() === 'levels') {
+                  <th>#</th><th>Level Name</th><th>Level Price</th><th>Classes</th><th>Students</th><th class="action-heading">Action</th>
+                } @else {
+                  @for (column of columns(); track column.key) { <th>{{ column.label }}</th> }
+                  <th>Actions</th>
                 }
-                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              @for (row of filtered(); track identity(row)) {
+              @for (row of filtered(); track identity(row); let index = $index) {
                 <tr>
-                  @for (column of columns(); track column.key) {
-                    <td>
-                      @if (column.key === 'Status' || column.key === 'IsActive') {
-                        <span class="status">{{ display(row, column.key) }}</span>
-                      } @else {
-                        {{ display(row, column.key) }}
-                      }
-                    </td>
+                  @if (resource() === 'levels') {
+                    <td>{{ index + 1 }}</td><td class="level-name">{{ row.Name }}</td>
+                    <td class="level-price">$ {{ money(row.LevelPrice) }}</td>
+                    <td><span class="count-badge classes-badge">{{ row.ClassesCount || 0 }} {{ row.ClassesCount === 1 ? 'Class' : 'Classes' }}</span></td>
+                    <td><span class="count-badge students-badge">{{ row.StudentsCount || 0 }} {{ row.StudentsCount === 1 ? 'Student' : 'Students' }}</span></td>
+                  } @else {
+                    @for (column of columns(); track column.key) {
+                      <td>@if (column.key === 'Status' || column.key === 'IsActive') { <span class="status">{{ display(row, column.key) }}</span> } @else { {{ display(row, column.key) }} }</td>
+                    }
                   }
                   <td class="actions">
-                    <button (click)="edit(row)">Edit</button
-                    ><button class="delete" (click)="remove(row)">Delete</button>
+                    <button (click)="edit(row)">✎ Edit</button><button class="delete" (click)="remove(row)">▣ Delete</button>
                   </td>
                 </tr>
               }
@@ -254,6 +246,9 @@ type Resource =
         justify-content: space-between;
         align-items: center;
       }
+      .academic-page { background:#fff; border-left:4px solid #2186d5; border-radius:12px; padding:16px 18px; box-shadow:0 5px 20px #183b5b0d; }
+      .academic-page h1 { font-size:15px; color:#11115f; margin:0 0 3px; }
+      .academic-page > button { background:#2186d5; font-weight:700; }
       .page p {
         font-size: 10px;
         font-weight: 800;
@@ -284,6 +279,7 @@ type Resource =
         padding: 7px;
         border-radius: 9px;
       }
+      .academic-page + .content, .academic-page + .notice { margin-top:16px; }
       .tabs button {
         border: 0;
         background: transparent;
@@ -305,7 +301,7 @@ type Resource =
         border: 1px solid #dbe5ee;
         border-radius: 9px;
         overflow: auto;
-        min-height: 360px;
+        min-height: 260px;
       }
       .table-card > header {
         display: flex;
@@ -363,6 +359,19 @@ type Resource =
         background: #fff0ef;
         color: #b83228;
       }
+      .levels-table th { color:#11133f; font-weight:800; text-transform:uppercase; letter-spacing:.02em; }
+      .levels-table td { padding-top:12px; padding-bottom:12px; }
+      .levels-table .level-name, .levels-table .level-price { color:#08085b; font-weight:800; }
+      .levels-table .action-heading, .levels-table .actions { text-align:right; white-space:nowrap; }
+      .count-badge { display:inline-block; border-radius:16px; padding:6px 10px; font-size:9px; font-weight:800; }
+      .classes-badge { background:#dff3ff; color:#075d91; }
+      .students-badge { background:#d9f8e6; color:#08743c; }
+      .levels-table .actions button { background:#211e75; color:white; font-size:10px; font-weight:700; padding:7px 9px; }
+      .levels-table .actions .delete { background:#ff1717; color:white; }
+      .academic-table th { color:#11133f; font-weight:800; text-transform:uppercase; letter-spacing:.02em; }
+      .academic-table .actions { text-align:right; white-space:nowrap; }
+      .academic-table .actions button { background:#211e75; color:white; font-size:10px; font-weight:700; padding:7px 9px; }
+      .academic-table .actions .delete { background:#ff1717; color:white; }
       .empty {
         display: grid;
         place-items: center;
@@ -513,9 +522,13 @@ export class AcademicComponent implements OnInit {
     { value: 6, label: 'Saturday' },
     { value: 7, label: 'Sunday' },
   ];
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private route: ActivatedRoute) {}
   ngOnInit() {
-    this.load();
+    this.route.paramMap.subscribe((params) => {
+      const requested = params.get('resource') as Resource | null;
+      this.resource.set(requested && this.tabs.some((tab) => tab.key === requested) ? requested : 'academic-years');
+      this.load();
+    });
     this.loadReferences();
   }
   select(r: Resource) {
@@ -524,6 +537,25 @@ export class AcademicComponent implements OnInit {
   }
   label() {
     return this.tabs.find((t) => t.key === this.resource())!.label;
+  }
+  pageTitle() {
+    const titles: Record<Resource, string> = {
+      'academic-years': 'Academic Year', levels: 'Level', shifts: 'Shift', subjects: 'Subject',
+      lessons: 'Lesson', classes: 'Class', timetables: 'Timetable',
+    };
+    return titles[this.resource()];
+  }
+  pageDescription() {
+    const descriptions: Record<Resource, string> = {
+      'academic-years': 'Manage academic years, dates and the active school year.',
+      levels: 'Manage levels, fees, classes and active students.',
+      shifts: 'Manage school shifts and their operating hours.',
+      subjects: 'Manage subjects, codes, marks and subject types.',
+      lessons: 'Manage lessons and their assigned subjects.',
+      classes: 'Manage classes, capacity, levels and shifts.',
+      timetables: 'Manage class schedules, teachers, rooms and lesson times.',
+    };
+    return descriptions[this.resource()];
   }
   columns() {
     const map: any = {
@@ -599,6 +631,9 @@ export class AcademicComponent implements OnInit {
     if (typeof row[key] === 'boolean' || key === 'IsDefault' || key === 'IsActive')
       return row[key] ? 'Yes' : 'No';
     return row[key] ?? '—';
+  }
+  money(value: unknown) {
+    return Number(value || 0).toFixed(2);
   }
   filtered() {
     const q = (this.search.value || '').toLowerCase();

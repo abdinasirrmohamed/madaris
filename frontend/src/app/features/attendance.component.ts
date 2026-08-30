@@ -1,6 +1,7 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { ApiService } from '../core/api.service';
+import { ActivatedRoute } from '@angular/router';
 @Component({
   standalone: true,
   imports: [ReactiveFormsModule],
@@ -488,8 +489,15 @@ export class AttendanceComponent implements OnInit {
   from = new FormControl(new Date(new Date().setDate(1)).toISOString().slice(0, 10));
   to = new FormControl(new Date().toISOString().slice(0, 10));
   reportClass = new FormControl<any>('');
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private route: ActivatedRoute) {}
   ngOnInit() {
+    this.route.paramMap.subscribe((params) => {
+      const view = params.get('view');
+      const next = view === 'reports' ? 'report' : view === 'corrections' ? 'corrections' : 'take';
+      this.tab.set(next);
+      if (next === 'report') this.loadReport();
+      if (next === 'corrections') { this.loadCorrections(); this.loadMissing(); }
+    });
     this.api.get<any>('/academic/classes').subscribe((r) => this.classes.set(r.data));
   }
   loadRoster() {

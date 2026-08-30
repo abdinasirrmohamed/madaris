@@ -146,7 +146,7 @@ import { ApiService } from '../core/api.service';
       </section>
     }
     @if (drawer()) {
-      <aside>
+      <aside class="drawer">
         <header>
           <h2>Record discipline incident</h2>
           <button (click)="drawer.set(false)">×</button>

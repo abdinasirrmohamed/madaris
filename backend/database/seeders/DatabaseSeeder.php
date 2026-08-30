@@ -31,5 +31,6 @@ class DatabaseSeeder extends Seeder
             DB::table('UserRoles')->insert(['TenantId'=>$tenantId,'UserId'=>$userId,'RoleId'=>$ownerRole]);
         }
         $this->call(AccessControlSeeder::class);
+        $this->call(ComprehensiveDemoSeeder::class);
     }
 }

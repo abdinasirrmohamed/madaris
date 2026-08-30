@@ -1,2 +1,292 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Naskh+Arabic:wght@500;600&display=swap');
 *{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:Inter,Arial,sans-serif;color:#18302e}button,input,select{font:inherit}button{cursor:pointer}h1,h2,h3,p{line-height:1.3}
+html[dir="rtl"] body{font-family:'Noto Naskh Arabic',Inter,Arial,sans-serif}
+html[dir="rtl"] input,html[dir="rtl"] select,html[dir="rtl"] textarea{text-align:right}
+html[dir="rtl"] table th,html[dir="rtl"] table td{text-align:right !important}
+
+/* Shared list-page design used by every table screen. */
+.page {
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+  min-height:70px;
+  padding:15px 18px !important;
+  background:#fff !important;
+  border:0 !important;
+  border-left:4px solid #2186d5 !important;
+  border-radius:12px !important;
+  box-shadow:0 5px 20px rgba(24,59,91,.06) !important;
+}
+.page h1 { margin:0 0 3px !important; color:#11115f !important; font-size:15px !important; }
+.page p,.page span { margin:0 !important; color:#66788a !important; font-size:11px !important; }
+.page>div>small,.page>div>p:first-child { display:none !important; }
+.page>button,.page .head-actions button,.page .head-actions a {
+  border:0 !important; border-radius:9px !important; padding:10px 14px !important;
+  background:#2186d5 !important; color:#fff !important; font-size:11px !important;
+  font-weight:700 !important; text-decoration:none !important;
+}
+.page + nav { display:none !important; }
+
+:where(section,article,div).card:has(>table),
+:where(section,article,div).table:has(>table),
+:where(section,article,div).table-card:has(>table),
+:where(section,article,div).panel:has(>table),
+:where(section,article,div).sheet:has(>table) {
+  margin-top:16px !important; padding:0 !important; background:#fff !important;
+  border:1px solid #e2e9f0 !important; border-radius:12px !important;
+  box-shadow:0 6px 22px rgba(24,59,91,.05) !important; overflow:auto !important;
+}
+section.card:has(table)>header,article.table-card>header {
+  min-height:58px; padding:14px 16px !important; border-bottom:1px solid #e7edf3 !important;
+}
+section.card:has(table)>header h2,article.table-card>header h2 {
+  color:#11115f !important; font-size:14px !important; font-weight:800 !important;
+}
+table { width:100% !important; border-collapse:collapse !important; background:#fff; }
+table th { padding:12px 14px !important; background:#f8fafc !important; color:#11133f !important;
+  border-bottom:1px solid #dfe7ee !important; font-size:9px !important; font-weight:800 !important;
+  text-transform:uppercase; letter-spacing:.025em; text-align:left; white-space:nowrap; }
+table td { padding:12px 14px !important; color:#25384a; border-bottom:1px solid #e7edf2 !important;
+  font-size:10px !important; text-align:left; }
+table tbody tr:last-child td { border-bottom:0 !important; }
+table tbody tr:hover td { background:#fbfdff; }
+table td b { color:#08085b; font-weight:800; }
+table .status { display:inline-block; padding:5px 9px !important; border-radius:15px !important;
+  background:#d9f8e6 !important; color:#08743c !important; font-size:9px !important; font-weight:800 !important; }
+table .actions { display:flex; justify-content:flex-end; gap:5px; white-space:nowrap; }
+table .actions button { border:0 !important; border-radius:7px !important; padding:7px 9px !important;
+  background:#211e75 !important; color:#fff !important; font-size:9px !important; font-weight:700 !important; }
+table .actions .delete,table .actions .trash { background:#ff1717 !important; color:#fff !important; }
+table td:last-child:has(>button),table td:last-child:has(>a),table td:last-child:has(>.actions) {
+  text-align:right !important; white-space:nowrap;
+}
+table td:last-child>button,table td:last-child>a {
+  display:inline-block; margin:2px; padding:7px 9px !important; border:0 !important;
+  border-radius:7px !important; background:#211e75 !important; color:#fff !important;
+  font-size:9px !important; font-weight:700 !important; text-decoration:none !important;
+}
+table td:last-child>button:last-child { background:#2186d5 !important; }
+table input,table select {
+  min-height:32px; padding:6px 8px !important; border:1px solid #d6e1ea !important;
+  border-radius:7px !important; background:#fff; color:#25384a;
+}
+
+/* Shared centered form dialog with a blurred page backdrop. */
+aside.drawer,
+app-examinations aside,
+app-student-operations aside,
+app-users aside {
+  position:fixed !important;
+  top:50% !important;
+  left:50% !important;
+  right:auto !important;
+  bottom:auto !important;
+  transform:translate(-50%,-50%) !important;
+  width:min(680px,calc(100vw - 32px)) !important;
+  max-height:calc(100vh - 64px) !important;
+  overflow-x:hidden !important;
+  overflow-y:auto !important;
+  z-index:1001 !important;
+  background:#fff !important;
+  border-radius:14px !important;
+  border:1px solid rgba(255,255,255,.75) !important;
+  box-shadow:0 0 0 100vmax rgba(10,18,45,.38),0 24px 70px rgba(9,20,50,.30) !important;
+}
+aside.receipt {
+  position:fixed !important;
+  top:50% !important;
+  left:50% !important;
+  right:auto !important;
+  bottom:auto !important;
+  transform:translate(-50%,-50%) !important;
+  width:min(720px,calc(100vw - 32px)) !important;
+  max-height:calc(100vh - 48px) !important;
+  overflow-x:hidden !important;
+  overflow-y:auto !important;
+  z-index:1001 !important;
+  background:#fff !important;
+  border:1px solid rgba(255,255,255,.8) !important;
+  border-radius:14px !important;
+  box-shadow:0 0 0 100vmax rgba(10,18,45,.42),0 24px 75px rgba(9,20,50,.34) !important;
+}
+aside.receipt > header,
+aside.receipt > .receipt-body { display:none !important; }
+.receipt-paper {
+  margin:28px 28px 0;
+  padding:34px 32px 26px;
+  background:#fff;
+  border:2px solid #2026ff;
+  border-radius:10px;
+  color:#14223a;
+}
+.school-head {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:20px;
+  padding:0 12px 14px;
+  text-align:center;
+  border-bottom:5px solid #15577b;
+}
+.school-head > div:last-child { display:grid; gap:3px; }
+.school-head h2 { margin:0; color:#356b59; font-size:25px; font-weight:800; }
+.school-head strong { color:#111; font-size:19px; }
+.school-head small { color:#526173; font-size:10px; }
+.school-mark {
+  width:92px;
+  height:92px;
+  flex:0 0 92px;
+  object-fit:contain;
+  filter:drop-shadow(0 4px 5px rgba(8,30,24,.22));
+}
+.receipt-rule { height:4px; margin:16px 8px 20px; border-radius:3px; background:#187ac1; }
+.receipt-date { margin:0 12px !important; color:#14223a !important; font-size:10px !important; }
+.voucher-title { margin:6px 0 32px; color:#153f78; text-align:center; font-size:18px; letter-spacing:.02em; }
+.voucher-table { width:100% !important; border:1px solid #aebfd5 !important; }
+.voucher-table th,.voucher-table td {
+  padding:12px !important;
+  border:1px solid #b8c7d9 !important;
+  background:#f5f8fc !important;
+  color:#14223a !important;
+  font-size:10px !important;
+  text-transform:none !important;
+  letter-spacing:0 !important;
+}
+.voucher-table th { width:18%; font-weight:800 !important; }
+.voucher-table td { background:#fff !important; }
+.signature { display:flex; align-items:end; gap:6px; margin:34px 10px 30px; color:#3e4968; font-size:15px; }
+.signature span { width:145px; border-bottom:1px solid #3e4968; }
+.receipt-foot { display:grid; gap:8px; padding-top:20px; border-top:1px solid #c5d2df; text-align:center; }
+.receipt-foot p { margin:0; color:#e42027; font-size:10px; }
+.receipt-foot strong { color:#445373; font-size:11px; }
+.receipt-foot small { color:#526173; font-size:9px; }
+.receipt-actions {
+  display:flex;
+  justify-content:flex-end;
+  gap:8px;
+  padding:13px 14px;
+  background:#fff;
+  border-top:1px solid #dce4eb;
+}
+.receipt-actions button {
+  border:0;
+  border-radius:9px;
+  padding:9px 13px;
+  background:#211e75;
+  color:#fff;
+  font-size:11px;
+  font-weight:700;
+}
+.receipt-actions .pdf { border:1px solid #211e75; background:#fff; color:#211e75; }
+aside.drawer::before,
+app-examinations aside::before,
+app-student-operations aside::before,
+app-users aside::before {
+  content:none !important;
+}
+aside.drawer > header,
+app-examinations aside > header,
+app-student-operations aside > header,
+app-users aside > header {
+  position:sticky;
+  top:0;
+  z-index:2;
+}
+aside.drawer > form,
+app-examinations aside > form,
+app-student-operations aside > form,
+app-users aside > form {
+  position:relative;
+  z-index:1;
+  min-width:0;
+  background:#fff !important;
+}
+aside.drawer input,
+aside.drawer select,
+aside.drawer textarea,
+app-examinations aside input,
+app-examinations aside select,
+app-student-operations aside input,
+app-student-operations aside select,
+app-student-operations aside textarea,
+app-users aside input,
+app-users aside select {
+  width:100%;
+  min-width:0;
+}
+
+/* Blur only the application behind an open modal, never the modal itself. */
+body:has(aside.drawer) app-sidebar,
+body:has(aside.drawer) app-header,
+body:has(aside.drawer) app-footer,
+body:has(app-examinations aside) app-sidebar,
+body:has(app-examinations aside) app-header,
+body:has(app-examinations aside) app-footer {
+  filter:blur(5px);
+}
+body:has(aside.receipt) app-sidebar,
+body:has(aside.receipt) app-header,
+body:has(aside.receipt) app-footer {
+  filter:blur(5px);
+}
+main > *:has(> aside.drawer) > :not(aside.drawer),
+app-examinations:has(> aside) > :not(aside),
+app-student-operations:has(> aside) > :not(aside),
+app-users:has(> aside) > :not(aside) {
+  filter:blur(5px);
+}
+app-finance:has(> aside.receipt) > :not(aside.receipt) {
+  filter:blur(5px);
+}
+
+@media(max-width:700px){
+  .page{min-height:64px;padding:12px !important}.page p,.page span{display:none !important}
+  table{min-width:680px}.page .head-actions a{display:none}
+  aside.drawer,
+  app-examinations aside,
+  app-student-operations aside,
+  app-users aside {
+    width:calc(100vw - 20px) !important;
+    max-height:calc(100vh - 20px) !important;
+    border-radius:12px !important;
+  }
+  aside.receipt {
+    width:calc(100vw - 20px) !important;
+    max-height:calc(100vh - 20px) !important;
+    border-radius:12px !important;
+  }
+  .receipt-paper { margin:10px 10px 0; padding:20px 14px; }
+  .school-head { gap:10px; }
+  .school-mark { width:64px; height:64px; flex-basis:64px; }
+  .school-head h2 { font-size:17px; }
+  .school-head strong { font-size:14px; }
+  .voucher-table th,.voucher-table td { padding:8px !important; font-size:8px !important; }
+}
+
+@media print {
+  aside.receipt {
+    position:absolute !important;
+    inset:0 !important;
+    transform:none !important;
+    width:100% !important;
+    max-height:none !important;
+    border:0 !important;
+    border-radius:0 !important;
+    box-shadow:none !important;
+  }
+  .receipt-paper { margin:0; }
+  .receipt-actions { display:none !important; }
+  body:has(aside.receipt) app-sidebar,
+  body:has(aside.receipt) app-header,
+  body:has(aside.receipt) app-footer,
+  app-finance:has(> aside.receipt) > :not(aside.receipt) {
+    filter:none !important;
+  }
+}
+
+/* Global Arabic direction support. */
+html[dir='rtl'] body { font-family:'Noto Naskh Arabic',Inter,sans-serif; }
+html[dir='rtl'] input,html[dir='rtl'] select,html[dir='rtl'] textarea { text-align:right; }
+html[dir='rtl'] table th,html[dir='rtl'] table td { text-align:right !important; }
+html[dir='rtl'] .drawer { right:auto !important; left:0; }
+html[dir='rtl'] .toast-stack { right:auto !important; left:18px; }

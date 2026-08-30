@@ -2,6 +2,8 @@ import { CurrencyPipe, DecimalPipe } from '@angular/common';
 import { Component, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../core/api.service';
+import { PermissionService } from '../core/permissions/permission.service';
+import { Permissions } from '../core/permissions/permissions.constants';
 
 @Component({
   standalone: true,
@@ -10,10 +12,10 @@ import { ApiService } from '../core/api.service';
     <section class="tabs">
       <button [class.active]="activeTab() === 'overview'" (click)="activeTab.set('overview')">
         ● Overview</button
-      ><button [class.active]="activeTab() === 'finance'" (click)="activeTab.set('finance')">
+      ><button [hidden]="!permissions.hasAny([Permissions.FinanceManage, Permissions.AccountsManage])" [class.active]="activeTab() === 'finance'" (click)="activeTab.set('finance')">
         ▣ Finance</button
-      ><button routerLink="/students">♙ Students</button
-      ><button [class.active]="activeTab() === 'attendance'" (click)="activeTab.set('attendance')">
+      ><button [hidden]="!permissions.has(Permissions.StudentsView)" routerLink="/students">♙ Students</button
+      ><button [hidden]="!permissions.hasAny([Permissions.AttendanceTake, Permissions.AttendanceCorrect])" [class.active]="activeTab() === 'attendance'" (click)="activeTab.set('attendance')">
         ▦ Attendance</button
       ><span></span><button class="period" (click)="cycleMonth()">▣ {{ selectedMonth() }}</button
       ><button class="period" (click)="cycleYear()">Academic {{ selectedYear() }}</button>
@@ -23,6 +25,10 @@ import { ApiService } from '../core/api.service';
     } @else if (error()) {
       <div class="state error">{{ error() }}</div>
     } @else {
+      <section class="personal-head">
+        <div><small>MY DASHBOARD</small><h2>Welcome back</h2><p>{{ roleLabel() }}</p></div>
+        <span>{{ data()?.MyActivity?.length || 0 }} recent activities</span>
+      </section>
       <section class="kpis">
         @for (card of cards(); track card.label) {
           <article [class]="card.color">
@@ -36,6 +42,7 @@ import { ApiService } from '../core/api.service';
           </article>
         }
       </section>
+      @if (canSection('finance')) {
       <article class="panel collection">
         <header>
           <h3>▥ STUDY FEE COLLECTION (12 MONTHS)</h3>
@@ -175,15 +182,47 @@ import { ApiService } from '../core/api.service';
         </section>
         <div class="progress"><i [style.width.%]="collectionRate()"></i></div>
       </article>
+      }
+      @if (canSection('students')) {
       <button class="summary" (click)="summaryOpen.set(!summaryOpen())">
         ⚑ &nbsp; STUDENT SUMMARY BY CLASS
         <span>{{ summaryOpen() ? 'Hide' : 'Click to view' }}⌄</span>
       </button>
       @if (summaryOpen()) {
+        <article class="student-summary">
+          <section class="student-totals">
+            <div><span>TOTAL STUDENTS</span><b>{{ summaryTotal() }}</b></div>
+            <div><span>MALE STUDENTS</span><b>{{ summaryMale() }}</b></div>
+            <div><span>FEMALE STUDENTS</span><b>{{ summaryFemale() }}</b></div>
+          </section>
+          <div class="class-table">
+            <table>
+              <thead><tr><th>#</th><th>CLASS NAME</th><th>TOTAL STUDENTS</th><th>MALE</th><th>FEMALE</th></tr></thead>
+              <tbody>
+                @for (row of classSummary(); track row.ClassId; let index = $index) {
+                  <tr><td>{{ index + 1 }}</td><td><span class="class-icon">▣</span><b>{{ row.ClassName }}</b></td><td><span class="count total">{{ row.TotalStudents }}</span></td><td><span class="count male">{{ row.MaleStudents }}</span></td><td><span class="count female">{{ row.FemaleStudents }}</span></td></tr>
+                } @empty {
+                  <tr><td colspan="5" class="no-classes">No active class enrollments found.</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </article>
         <article class="panel drilldown">
           <p>Active students</p>
           <strong>{{ data()?.TotalStudents || 0 }}</strong
           ><a routerLink="/students">Open student directory →</a>
+        </article>
+      }
+      }
+      @if (data()?.MyActivity?.length) {
+        <article class="panel my-activity">
+          <header><h3>MY RECENT ACTIVITY</h3></header>
+          <div>
+            @for (activity of data().MyActivity; track $index) {
+              <p><span>{{ activity.Action }} · {{ activity.EntityType }}</span><small>{{ activity.CreatedAt }}</small></p>
+            }
+          </div>
         </article>
       }
     }
@@ -193,6 +232,11 @@ import { ApiService } from '../core/api.service';
       :host {
         display: block;
       }
+      .personal-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; padding:14px 18px; border-radius:10px; background:linear-gradient(120deg,#211e75,#155b98); color:white; }
+      .personal-head small { font-size:8px; color:#9de4f3; font-weight:800; }
+      .personal-head h2 { margin:2px 0; font-size:17px; }
+      .personal-head p { margin:0; color:#d8e7f6; font-size:9px; }
+      .personal-head > span { padding:7px 10px; border-radius:14px; background:#ffffff18; font-size:9px; }
       .tabs {
         height: 52px;
         background: white;
@@ -570,6 +614,28 @@ import { ApiService } from '../core/api.service';
         float: right;
         font-weight: 500;
       }
+      .drilldown { display: none; }
+      .student-summary { padding: 12px 0 8px; background: white; }
+      .student-totals { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:10px; }
+      .student-totals div { display:flex; align-items:center; justify-content:space-between; min-height:50px; padding:0 12px; border:1px solid #cde1fb; border-radius:10px; background:#f1f7ff; }
+      .student-totals span { color:#60708d; font-size:9px; font-weight:800; }
+      .student-totals b { color:#064794; font-size:15px; }
+      .class-table { overflow:auto; }
+      .class-table table { min-width:680px; border-collapse:separate !important; border-spacing:0 7px; }
+      .class-table th { border:0 !important; background:white !important; color:#53617e !important; }
+      .class-table td { height:52px; border-top:1px solid #dfebf7 !important; border-bottom:1px solid #dfebf7 !important; background:white; }
+      .class-table td:first-child { border-left:1px solid #dfebf7 !important; border-radius:10px 0 0 10px; }
+      .class-table td:last-child { border-right:1px solid #dfebf7 !important; border-radius:0 10px 10px 0; }
+      .class-icon { display:inline-grid; place-items:center; width:30px; height:30px; margin-right:9px; border-radius:9px; background:#5146ed; color:white; }
+      .count { display:inline-block; min-width:34px; padding:7px 10px; border-radius:18px; text-align:center; font-weight:800; }
+      .count.total,.count.male { background:#e8f3ff; color:#1264d2; }
+      .count.female { background:#ffe8f2; color:#e92d80; }
+      .no-classes { padding:35px !important; text-align:center !important; color:#758392; }
+      .my-activity { margin-top:10px; }
+      .my-activity > div { padding:4px 14px 10px; }
+      .my-activity p { display:flex; justify-content:space-between; margin:0; padding:10px 0; border-bottom:1px solid #edf1f5; font-size:9px; }
+      .my-activity p:last-child { border-bottom:0; }
+      .my-activity small { color:#778696; }
       .state {
         background: white;
         border-radius: 10px;
@@ -607,6 +673,7 @@ import { ApiService } from '../core/api.service';
         .overview section {
           grid-template-columns: 1fr 1fr;
         }
+        .student-totals { grid-template-columns:1fr; }
         .collection {
           overflow: auto;
         }
@@ -626,7 +693,7 @@ export class DashboardComponent implements OnInit {
   error = signal('');
   activeTab = signal('overview');
   chartMode = signal<'column' | 'line'>('column');
-  summaryOpen = signal(false);
+  summaryOpen = signal(true);
   selectedMonth = signal('August 2026');
   selectedYear = signal('2026/27');
   months = [
@@ -643,7 +710,8 @@ export class DashboardComponent implements OnInit {
     { name: 'Jul 2026', value: 0 },
     { name: 'Aug 2026', value: 0 },
   ];
-  constructor(private api: ApiService) {}
+  readonly Permissions = Permissions;
+  constructor(private api: ApiService, public permissions: PermissionService) {}
   ngOnInit() {
     this.api.get<any>('/dashboard').subscribe({
       next: (r) => {
@@ -719,7 +787,20 @@ export class DashboardComponent implements OnInit {
         note: 'Scholarship students',
         color: 'teal-card',
       },
-    ];
+    ].filter((card: any) => this.cardAllowed(card.label));
+  }
+  cardAllowed(label: string) {
+    if (['FEES'].includes(label)) return this.canSection('finance');
+    if (['TODAY PRESENT', 'TODAY ABSENT'].includes(label)) return this.canSection('attendance');
+    if (label === 'TOTAL TEACHERS') return this.canSection('hrm') || this.canSection('reports');
+    if (label === 'TOTAL CLASSES') return this.canSection('academic') || this.canSection('students') || this.canSection('reports');
+    return this.canSection('students') || this.canSection('reports');
+  }
+  canSection(section: string) {
+    return (this.data()?.DashboardSections ?? []).includes(section);
+  }
+  roleLabel() {
+    return (this.data()?.MyRoles ?? []).join(' · ') || 'Assigned user';
   }
   maxCollection() {
     return Math.max(...this.months.map((m) => m.value), 1);
@@ -778,6 +859,18 @@ export class DashboardComponent implements OnInit {
   }
   collectionRate() {
     return this.totalCharges() ? (this.paid() / this.totalCharges()) * 100 : 0;
+  }
+  classSummary() {
+    return this.data()?.StudentSummaryByClass ?? [];
+  }
+  summaryTotal() {
+    return this.classSummary().reduce((sum: number, row: any) => sum + Number(row.TotalStudents), 0);
+  }
+  summaryMale() {
+    return this.classSummary().reduce((sum: number, row: any) => sum + Number(row.MaleStudents), 0);
+  }
+  summaryFemale() {
+    return this.classSummary().reduce((sum: number, row: any) => sum + Number(row.FemaleStudents), 0);
   }
   cycleMonth() {
     this.selectedMonth.update(value => value === 'August 2026' ? 'July 2026' : 'August 2026');

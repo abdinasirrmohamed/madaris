@@ -2,6 +2,7 @@ import { Component, OnInit, computed, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../core/api.service';
+import { ToastService } from '../core/toast.service';
 @Component({
   standalone: true,
   imports: [ReactiveFormsModule, RouterLink],
@@ -114,7 +115,7 @@ import { ApiService } from '../core/api.service';
     </section>
     @if (drawer()) {
       <div class="backdrop" (click)="drawer.set(false)"></div>
-      <aside>
+      <aside class="drawer">
         <header>
           <div>
             <small>{{ editing() ? 'EDIT USER' : 'NEW USER' }}</small>
@@ -127,10 +128,10 @@ import { ApiService } from '../core/api.service';
           ><label>Email address<input type="email" formControlName="Email" /></label>
           @if (!editing()) {
             <div class="pair">
-              <label>Password<input type="password" formControlName="Password" /></label
+              <label>Password<input type="password" formControlName="Password" /><small>Minimum 10 characters</small></label
               ><label
                 >Confirm password<input type="password" formControlName="Password_confirmation"
-              /></label>
+              /><small>Repeat the same password</small></label>
             </div>
           }
           <fieldset>
@@ -157,7 +158,10 @@ import { ApiService } from '../core/api.service';
               >
             }
           </fieldset>
-          <button class="submit" [disabled]="form.invalid || saving()">
+          @if (formError()) {
+            <p class="form-error">{{ formError() }}</p>
+          }
+          <button class="submit" [disabled]="saving()">
             {{ saving() ? 'Saving…' : 'Save user' }}
           </button>
         </form>
@@ -344,6 +348,16 @@ import { ApiService } from '../core/api.service';
         padding: 10px;
         border-radius: 7px;
       }
+      .form-error {
+        margin: 12px 0 0;
+        padding: 10px 12px;
+        border: 1px solid #fecaca;
+        border-radius: 8px;
+        background: #fff1f2;
+        color: #b42318;
+        font-size: 10px;
+        font-weight: 700;
+      }
       .backdrop {
         position: fixed;
         inset: 0;
@@ -451,6 +465,7 @@ export class UsersComponent implements OnInit {
   editing = signal<any>(null);
   saving = signal(false);
   message = signal('');
+  formError = signal('');
   selectedBranches = signal<number[]>([]);
   selectedRoles = signal<number[]>([]);
   searchText = signal('');
@@ -474,7 +489,7 @@ export class UsersComponent implements OnInit {
       start = (this.page() - 1) * size;
     return this.filtered().slice(start, start + size);
   });
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private toasts: ToastService) {}
   ngOnInit() {
     this.load();
     this.api.get<any>('/branches').subscribe((r) => this.branches.set(r.data));
@@ -508,13 +523,15 @@ export class UsersComponent implements OnInit {
   }
   openCreate() {
     this.editing.set(null);
+    this.formError.set('');
     this.form.reset({ Name: '', Email: '', Password: '', Password_confirmation: '' });
     this.selectedBranches.set(this.branches()[0] ? [this.branches()[0].BranchId] : []);
-    this.selectedRoles.set([]);
+    this.selectedRoles.set(this.roles()[0] ? [this.roles()[0].RoleId] : []);
     this.drawer.set(true);
   }
   openEdit(u: any) {
     this.editing.set(u);
+    this.formError.set('');
     this.form.patchValue({ Name: u.Name, Email: u.Email, Password: '', Password_confirmation: '' });
     this.selectedBranches.set(u.Branches.map((b: any) => b.BranchId));
     this.selectedRoles.set(u.Roles.map((r: any) => r.RoleId));
@@ -527,12 +544,29 @@ export class UsersComponent implements OnInit {
     this.selectedRoles.update((v) => (v.includes(id) ? v.filter((x) => x !== id) : [...v, id]));
   }
   save() {
+    this.formError.set('');
+    if (this.form.controls.Name.invalid || this.form.controls.Email.invalid) {
+      this.formError.set('Enter a valid full name and email address.');
+      return;
+    }
+    if (!this.editing() && this.form.controls.Password.invalid) {
+      this.formError.set('Password must contain at least 10 characters.');
+      return;
+    }
+    if (!this.editing() && this.form.controls.Password_confirmation.invalid) {
+      this.formError.set('Password confirmation must contain at least 10 characters.');
+      return;
+    }
     if (!this.selectedBranches().length || !this.selectedRoles().length) {
-      this.message.set('Select at least one branch and one role.');
+      this.formError.set('Select at least one branch and one role.');
+      return;
+    }
+    if (!this.editing() && (!this.form.value.Password || !this.form.value.Password_confirmation)) {
+      this.formError.set('Enter and confirm a password of at least 10 characters.');
       return;
     }
     if (!this.editing() && this.form.value.Password !== this.form.value.Password_confirmation) {
-      this.message.set('Passwords do not match.');
+      this.formError.set('Passwords do not match.');
       return;
     }
     this.saving.set(true);
@@ -547,12 +581,15 @@ export class UsersComponent implements OnInit {
     call.subscribe({
       next: (r) => {
         this.message.set(r.message);
+        this.toasts.show(r.message);
         this.drawer.set(false);
         this.saving.set(false);
         this.load();
       },
       error: (e) => {
-        this.message.set(e.error?.message || 'Unable to save user.');
+        const validation = Object.values(e.error?.errors || {}).flat().join(' ');
+        this.formError.set(validation || e.error?.message || 'Unable to save user.');
+        this.toasts.show(validation || e.error?.message || 'Unable to save user.', 'error');
         this.saving.set(false);
       },
     });

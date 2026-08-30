@@ -32,7 +32,7 @@ class UserManagementController extends Controller
     {
         $data = $this->validated($request, $tenant);
         $id = DB::transaction(function () use ($data, $tenant) {
-            $id = DB::table('Users')->insertGetId(['TenantId' => $tenant->id(), 'Name' => $data['Name'], 'Email' => $data['Email'], 'Password' => Hash::make($data['Password']), 'Status' => 'Active', 'Permissions' => json_encode([]), 'CreatedAt' => now(), 'UpdatedAt' => now()], 'UserId');
+            $id = DB::table('Users')->insertGetId(['TenantId' => $tenant->id(), 'Name' => $data['Name'], 'Email' => $data['Email'], 'Password' => Hash::make($data['Password']), 'MustChangePassword' => true, 'Status' => 'Active', 'Permissions' => json_encode([]), 'CreatedAt' => now(), 'UpdatedAt' => now()], 'UserId');
             $this->syncAccess($id, $data, $tenant);
             $this->audit($tenant, 'Create', 'Users', $id, null, ['Name' => $data['Name'], 'Email' => $data['Email'], 'RoleIds' => $data['RoleIds'], 'BranchIds' => $data['BranchIds']]);
 
@@ -74,7 +74,7 @@ class UserManagementController extends Controller
     {
         $record = User::where('TenantId', $tenant->id())->findOrFail($user);
         $data = $request->validate(['Password' => ['required', 'string', 'min:10', 'confirmed']]);
-        $record->update(['Password' => Hash::make($data['Password'])]);
+        $record->update(['Password' => Hash::make($data['Password']), 'MustChangePassword' => true]);
         $record->tokens()->delete();
         $this->audit($tenant, 'ResetPassword', 'Users', $user, null, ['SessionsRevoked' => true]);
 
