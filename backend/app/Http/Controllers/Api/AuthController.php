@@ -88,6 +88,10 @@ class AuthController extends Controller
         $payload = $user->only(['UserId','TenantId','Name','Email','Status','MustChangePassword']);
         $payload['ProfilePhotoUrl'] = $user->ProfilePhotoPath ? '/storage/'.$user->ProfilePhotoPath : null;
         $payload['Permissions'] = $this->permissions($user);
+        $payload['Roles'] = DB::table('UserRoles')->join('Roles', 'UserRoles.RoleId', '=', 'Roles.RoleId')
+            ->where('UserRoles.UserId', $user->UserId)->pluck('Roles.RoleName')->values()->all();
+        $payload['IsParent'] = in_array('Parent', $payload['Roles'], true)
+            && DB::table('Guardians')->where('TenantId', $user->TenantId)->where('UserId', $user->UserId)->exists();
         return $payload;
     }
 

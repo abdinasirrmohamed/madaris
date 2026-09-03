@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::match(['get', 'post'], 'examinations/types', [ExaminationController::class, 'types'])->middleware('permission:examinations.manage');
 Route::match(['get', 'post'], 'examinations', [ExaminationController::class, 'exams'])->middleware('permission:examinations.manage');
+Route::get('examinations-report', [ExaminationController::class, 'report'])->middleware('permission:examinations.manage');
 Route::post('examinations/{exam}/schedule', [ExaminationController::class, 'schedule'])->middleware('permission:examinations.manage');
 Route::get('examinations/{exam}/roster', [ExaminationController::class, 'roster'])->middleware('permission:examinations.manage');
 Route::put('examinations/{exam}/attendance', [ExaminationController::class, 'attendance'])->middleware('permission:examinations.manage');

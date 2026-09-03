@@ -1,10 +1,14 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { ApiService } from '../core/api.service';
+import { DialogService } from '../core/dialog.service';
+import { CurrencyPipe } from '@angular/common';
+import { ToastService } from '../core/toast.service';
+import { PermissionService } from '../core/permissions/permission.service';
 @Component({
   standalone: true,
-  imports: [RouterLink, ReactiveFormsModule],
+  imports: [RouterLink, ReactiveFormsModule, CurrencyPipe],
   template: `<a routerLink="/students" class="back">← Back to students</a>
     @if (loading()) {
       <div class="state">Loading profile…</div>
@@ -32,7 +36,13 @@ import { ApiService } from '../core/api.service';
         <button (click)="changeStatus('Inactive')">Mark inactive</button>
         <button (click)="changeStatus('Active')">Reactivate</button>
         <button (click)="transfer()">Transfer student</button>
-        <label>Upload document <input type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" (change)="uploadDocument($event)" /></label>
+        <label
+          >Upload document
+          <input
+            type="file"
+            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+            (change)="uploadDocument($event)"
+        /></label>
       </section>
       <nav>
         <button [class.active]="tab() === 'overview'" (click)="tab.set('overview')">Overview</button
@@ -75,16 +85,46 @@ import { ApiService } from '../core/api.service';
             }
           </article>
           <article>
+            <h3>Lacagaha ardayga</h3>
+            @for (invoice of profile().invoices; track invoice.InvoiceId) {
+              <div class="guardian invoice-row">
+                <b>{{ invoice.InvoiceNo }} · {{ invoice.FeeTypeName || 'School fee' }}</b
+                ><span
+                  >Wadarta {{ invoice.Total | currency: 'USD' }} · La bixiyey
+                  {{ invoice.PaidAmount | currency: 'USD' }} · Hadhaaga
+                  {{ invoice.Balance | currency: 'USD' }}</span
+                ><small>{{ invoice.DueDate }} · {{ invoice.PaymentStatus }}</small>
+                @if (invoice.Balance > 0 && permissions.has('sms.send_individual')) {
+                  <button (click)="openFeeReminder(invoice)">Send Fee Reminder</button>
+                }
+              </div>
+            } @empty {
+              <p>Wax lacag ah lama diiwaangelin.</p>
+            }
+          </article>
+          <article>
             <h3>Documents</h3>
             @for (d of profile().documents; track d.StudentDocumentId) {
-              <a class="document" [href]="'/api/v1/students/' + id + '/documents/' + d.StudentDocumentId">{{ d.DocumentType }} · {{ d.OriginalName }}</a>
-            } @empty { <p>No documents uploaded.</p> }
+              <a
+                class="document"
+                [href]="'/api/v1/students/' + id + '/documents/' + d.StudentDocumentId"
+                >{{ d.DocumentType }} · {{ d.OriginalName }}</a
+              >
+            } @empty {
+              <p>No documents uploaded.</p>
+            }
           </article>
           <article>
             <h3>Transfer history</h3>
             @for (t of profile().transfers; track t.StudentTransferId) {
-              <div class="guardian"><b>{{ t.TransferDate }} · {{ t.Status }}</b><span>{{ t.ExternalDestination || ('Branch #' + t.ToBranchId) }}</span><small>{{ t.Reason }}</small></div>
-            } @empty { <p>No transfers recorded.</p> }
+              <div class="guardian">
+                <b>{{ t.TransferDate }} · {{ t.Status }}</b
+                ><span>{{ t.ExternalDestination || 'Branch #' + t.ToBranchId }}</span
+                ><small>{{ t.Reason }}</small>
+              </div>
+            } @empty {
+              <p>No transfers recorded.</p>
+            }
           </article>
         </section>
       }
@@ -214,6 +254,64 @@ import { ApiService } from '../core/api.service';
             </form>
           }
         </aside>
+      }
+      @if (reminderInvoice()) {
+        <div class="reminder-modal" (click)="reminderInvoice.set(null)">
+          <section (click)="$event.stopPropagation()">
+            <header>
+              <h2>Send Fee Reminder</h2>
+              <button (click)="reminderInvoice.set(null)">×</button>
+            </header>
+            <div class="reminder-body">
+              <dl>
+                <dt>Ardayga</dt>
+                <dd>{{ studentName() }}</dd>
+                <dt>Waalidka</dt>
+                <dd>{{ feeGuardian()?.FullName || '—' }}</dd>
+                <dt>Telefoon</dt>
+                <dd>{{ feeGuardian()?.PrimaryPhone || '—' }}</dd>
+                <dt>Due date</dt>
+                <dd>{{ reminderInvoice().DueDate }}</dd>
+                <dt>Wadarta</dt>
+                <dd>{{ reminderInvoice().Total | currency: 'USD' }}</dd>
+                <dt>La bixiyey</dt>
+                <dd>{{ reminderInvoice().PaidAmount | currency: 'USD' }}</dd>
+                <dt>Hadhaaga</dt>
+                <dd>{{ reminderInvoice().Balance | currency: 'USD' }}</dd>
+              </dl>
+              <label
+                >SMS Template<select
+                  [formControl]="reminderTemplate"
+                  (change)="previewFeeReminder()"
+                >
+                  @for (t of smsTemplates(); track t.SmsTemplateId) {
+                    <option [value]="t.SmsTemplateId">{{ t.TemplateName }}</option>
+                  }
+                </select></label
+              ><label
+                >Fariinta hordhaceeda<textarea
+                  rows="6"
+                  readonly
+                  [value]="reminderPreview()"
+                ></textarea
+                ><small>{{ reminderPreview().length }} xaraf</small></label
+              >
+              @if (!feeGuardian()?.PrimaryPhone) {
+                <p class="validation">Waalidku ma laha telefoon; SMS lama diri karo.</p>
+              }
+              <footer>
+                <button (click)="reminderInvoice.set(null)">Jooji</button
+                ><button
+                  class="send"
+                  [disabled]="!feeGuardian()?.PrimaryPhone || !reminderTemplate.value"
+                  (click)="sendFeeReminder()"
+                >
+                  Dir SMS
+                </button>
+              </footer>
+            </div>
+          </section>
+        </div>
       }
     }`,
   styles: [
@@ -404,7 +502,105 @@ import { ApiService } from '../core/api.service';
         padding: 10px;
         border-radius: 7px;
       }
-      .actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 12px}.actions button,.actions label{border:1px solid #d7e1e9;background:white;border-radius:7px;padding:8px 10px;font-size:10px}.actions label{cursor:pointer}.actions input{display:none}.document{display:block;padding:9px 0;border-bottom:1px solid #edf1f4;color:#16539a;font-size:11px}
+      .actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin: 0 0 12px;
+      }
+      .actions button,
+      .actions label {
+        border: 1px solid #d7e1e9;
+        background: white;
+        border-radius: 7px;
+        padding: 8px 10px;
+        font-size: 10px;
+      }
+      .actions label {
+        cursor: pointer;
+      }
+      .actions input {
+        display: none;
+      }
+      .document {
+        display: block;
+        padding: 9px 0;
+        border-bottom: 1px solid #edf1f4;
+        color: #16539a;
+        font-size: 11px;
+      }
+      .invoice-row button {
+        justify-self: start;
+        background: #211e75;
+        color: white;
+        margin-top: 7px;
+      }
+      .reminder-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 6000;
+        display: grid;
+        place-items: center;
+        padding: 20px;
+        background: #10182899;
+        backdrop-filter: blur(8px);
+      }
+      .reminder-modal > section {
+        width: min(540px, 100%);
+        max-height: calc(100vh - 40px);
+        overflow: auto;
+        border-radius: 14px;
+        background: white;
+        box-shadow: 0 30px 90px #0007;
+      }
+      .reminder-modal header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 18px 22px;
+        border-bottom: 1px solid #e2e8ef;
+      }
+      .reminder-modal h2 {
+        margin: 0;
+      }
+      .reminder-modal header button {
+        border: 0;
+        background: none;
+        font-size: 24px;
+      }
+      .reminder-body {
+        padding: 20px;
+      }
+      .reminder-body label {
+        display: grid;
+        gap: 6px;
+        margin: 14px 0;
+        font-size: 10px;
+        font-weight: 700;
+      }
+      .reminder-body select,
+      .reminder-body textarea {
+        padding: 10px;
+        border: 1px solid #d5dee7;
+        border-radius: 8px;
+      }
+      .reminder-body footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+      .reminder-body .send {
+        background: #211e75;
+        color: white;
+      }
+      .validation {
+        padding: 9px;
+        border-radius: 7px;
+        background: #fff1f2;
+        color: #b42318;
+        font-size: 10px;
+      }
       .state {
         padding: 80px;
         text-align: center;
@@ -428,11 +624,16 @@ import { ApiService } from '../core/api.service';
   ],
 })
 export class StudentProfileComponent implements OnInit {
+  private dialog = inject(DialogService);
   id = 0;
   profile = signal<any>(null);
   loading = signal(true);
   tab = signal('overview');
   mode = signal<'edit' | 'enroll' | null>(null);
+  reminderInvoice = signal<any>(null);
+  smsTemplates = signal<any[]>([]);
+  reminderPreview = signal('');
+  reminderTemplate = new FormControl<any>('');
   message = signal('');
   branches = signal<any[]>([]);
   years = signal<any[]>([]);
@@ -468,6 +669,8 @@ export class StudentProfileComponent implements OnInit {
   constructor(
     private route: ActivatedRoute,
     private api: ApiService,
+    private toast: ToastService,
+    public permissions: PermissionService,
   ) {}
   ngOnInit() {
     this.id = Number(this.route.snapshot.paramMap.get('id'));
@@ -530,24 +733,109 @@ export class StudentProfileComponent implements OnInit {
         this.load();
       });
   }
-  changeStatus(Status: 'Active' | 'Inactive') {
-    const Reason = prompt(`Reason for changing status to ${Status}`);
+  async changeStatus(Status: 'Active' | 'Inactive') {
+    const Reason = await this.dialog.prompt(`Reason for changing status to ${Status}`);
     if (!Reason) return;
-    this.api.post<any>(`/students/${this.id}/status`, { Status, Reason }).subscribe((r) => { this.message.set(r.message); this.load(); });
+    this.api.post<any>(`/students/${this.id}/status`, { Status, Reason }).subscribe((r) => {
+      this.message.set(r.message);
+      this.load();
+    });
   }
-  transfer() {
-    const destination = prompt('Destination branch ID, or leave blank for an external school');
-    const ExternalDestination = destination ? null : prompt('External school or destination');
-    const Reason = prompt('Transfer reason');
+  async transfer() {
+    const destination = await this.dialog.prompt(
+      'Destination branch ID, or enter 0 for an external school',
+      '0',
+      'number',
+    );
+    const ExternalDestination = Number(destination)
+      ? null
+      : await this.dialog.prompt('External school or destination');
+    const Reason = await this.dialog.prompt('Transfer reason');
     if ((!destination && !ExternalDestination) || !Reason) return;
-    this.api.post<any>(`/students/${this.id}/transfer`, { ToBranchId: destination ? Number(destination) : null, ExternalDestination, TransferDate: new Date().toISOString().slice(0, 10), Reason }).subscribe((r) => { this.message.set(r.message); this.load(); });
+    this.api
+      .post<any>(`/students/${this.id}/transfer`, {
+        ToBranchId: destination ? Number(destination) : null,
+        ExternalDestination,
+        TransferDate: new Date().toISOString().slice(0, 10),
+        Reason,
+      })
+      .subscribe((r) => {
+        this.message.set(r.message);
+        this.load();
+      });
   }
-  uploadDocument(event: Event) {
+  async uploadDocument(event: Event) {
     const file = (event.target as HTMLInputElement).files?.[0];
     if (!file) return;
-    const DocumentType = prompt('Document type', 'Student document');
+    const DocumentType = await this.dialog.prompt('Document type', 'Student document');
     if (!DocumentType) return;
-    const body = new FormData(); body.append('DocumentType', DocumentType); body.append('file', file);
-    this.api.post<any>(`/students/${this.id}/documents`, body).subscribe((r) => { this.message.set(r.message); this.load(); });
+    const body = new FormData();
+    body.append('DocumentType', DocumentType);
+    body.append('file', file);
+    this.api.post<any>(`/students/${this.id}/documents`, body).subscribe((r) => {
+      this.message.set(r.message);
+      this.load();
+    });
+  }
+  studentName() {
+    const s = this.profile().student;
+    return [s.FirstName, s.MiddleName, s.LastName].filter(Boolean).join(' ');
+  }
+  feeGuardian() {
+    return (
+      this.profile().guardians.find((g: any) => g.IsFeeResponsible) ||
+      this.profile().guardians.find((g: any) => g.IsPrimary) ||
+      this.profile().guardians[0]
+    );
+  }
+  openFeeReminder(invoice: any) {
+    this.reminderInvoice.set(invoice);
+    this.reminderPreview.set('Fariinta waa la diyaarinayaa…');
+    this.api.get<any>('/sms/references').subscribe({
+      next: (r) => {
+        const templates = r.data.Templates || [];
+        this.smsTemplates.set(templates);
+        this.reminderTemplate.setValue(
+          templates.find((t: any) => t.IsDefault)?.SmsTemplateId ||
+            templates[0]?.SmsTemplateId ||
+            '',
+        );
+        this.previewFeeReminder();
+      },
+      error: (e) =>
+        this.toast.show(e.error?.message || 'SMS templates lama soo saari karin.', 'error'),
+    });
+  }
+  previewFeeReminder() {
+    if (!this.reminderInvoice() || !this.reminderTemplate.value) return;
+    this.api
+      .post<any>('/sms/preview', {
+        InvoiceIds: [this.reminderInvoice().InvoiceId],
+        SmsTemplateId: Number(this.reminderTemplate.value),
+        CombineSiblings: false,
+        MessageType: 'fee_reminder',
+        Filters: {},
+      })
+      .subscribe({
+        next: (r) => this.reminderPreview.set(r.data.Messages?.[0]?.MessageBody || ''),
+        error: (e) => this.toast.show(e.error?.message || 'Fariinta lama diyaarin karin.', 'error'),
+      });
+  }
+  sendFeeReminder() {
+    this.api
+      .post<any>('/sms/send-individual-fee-reminder', {
+        InvoiceIds: [this.reminderInvoice().InvoiceId],
+        SmsTemplateId: Number(this.reminderTemplate.value),
+        CombineSiblings: false,
+        MessageType: 'fee_reminder',
+        Filters: {},
+      })
+      .subscribe({
+        next: (r) => {
+          this.toast.show(r.message);
+          this.reminderInvoice.set(null);
+        },
+        error: (e) => this.toast.show(e.error?.message || 'SMS lama diri karin.', 'error'),
+      });
   }
 }

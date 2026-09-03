@@ -1,8 +1,9 @@
 import { CurrencyPipe, DatePipe } from '@angular/common';
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { ApiService } from '../core/api.service';
 import { ActivatedRoute } from '@angular/router';
+import { DialogService } from '../core/dialog.service';
 @Component({
   standalone: true,
   imports: [ReactiveFormsModule, CurrencyPipe, DatePipe],
@@ -21,6 +22,12 @@ import { ActivatedRoute } from '@angular/router';
     </nav>
     @if (message()) {
       <p class="notice">{{ message() }}</p>
+    }
+    @if (tab() === 'fee-types') {
+      <section class="card"><table><thead><tr><th>Fee type</th><th>Status</th></tr></thead><tbody>@for(f of feeTypes();track f.FeeTypeId){<tr><td><b>{{f.FeeTypeName}}</b></td><td><span class="badge">{{f.IsActive?'Active':'Inactive'}}</span></td></tr>}</tbody></table>@if(!feeTypes().length){<div class="empty">No fee types configured.</div>}</section>
+    }
+    @if (tab() === 'fee-responsibilities') {
+      <section class="card"><table><thead><tr><th>Guardian</th><th>Phone</th><th>Student</th><th>Admission No</th></tr></thead><tbody>@for(r of responsibleGuardians();track r.GuardianId + '-' + r.StudentId){<tr><td><b>{{r.FullName}}</b></td><td>{{r.PrimaryPhone}}</td><td>{{r.FirstName}} {{r.LastName}}</td><td>{{r.AdmissionNo}}</td></tr>}</tbody></table>@if(!responsibleGuardians().length){<div class="empty">No fee responsibilities assigned.</div>}</section>
     }
     @if (tab() === 'invoices') {
       <section class="card">
@@ -711,6 +718,7 @@ import { ActivatedRoute } from '@angular/router';
   ],
 })
 export class FinanceComponent implements OnInit {
+  private dialog = inject(DialogService);
   tabs = [
     { key: 'invoices', label: 'Invoices' },
     { key: 'receive-fee', label: 'Receive fee' },
@@ -731,6 +739,7 @@ export class FinanceComponent implements OnInit {
   students = signal<any[]>([]);
   branches = signal<any[]>([]);
   feeTypes = signal<any[]>([]);
+  responsibleGuardians = signal<any[]>([]);
   categories = signal<any[]>([]);
   today = new Date().toISOString().slice(0, 10);
   invoiceForm = new FormGroup({
@@ -782,7 +791,9 @@ export class FinanceComponent implements OnInit {
   ngOnInit() {
     this.route.paramMap.subscribe((params) => {
       const view = params.get('view');
-      this.tab.set(view && this.tabs.some((item) => item.key === view) ? view : 'invoices');
+      const aliases: Record<string,string> = {'all-charges':'invoices','single-charge':'invoices','fee-types':'fee-types','scholarships':'discounts','fee-responsibilities':'fee-responsibilities','student-adjustments':'invoices'};
+      this.tab.set(view && this.tabs.some((item) => item.key === view) ? view : aliases[view || ''] || 'invoices');
+      if (view === 'single-charge') this.drawer.set(true);
       this.loadAll();
     });
     this.api.get<any>('/students', { per_page: '100' }).subscribe((r) => this.students.set(r.data));
@@ -804,10 +815,14 @@ export class FinanceComponent implements OnInit {
         discounts: 'Create discount',
         accounts: 'Create account',
         expenses: 'Post expense',
+        'fee-types': 'Add fee type',
+        'fee-responsibilities': 'Fee responsibilities',
       } as any
     )[this.tab()];
   }
   openAction() {
+    if(this.tab()==='fee-types'){this.addFeeType();return}
+    if(this.tab()==='fee-responsibilities')return;
     this.drawer.set(true);
   }
   loadAll() {
@@ -816,6 +831,7 @@ export class FinanceComponent implements OnInit {
     this.api.get<any>('/finance/discounts').subscribe((r) => this.discounts.set(r.data));
     this.api.get<any>('/accounts').subscribe((r) => this.accounts.set(r.data));
     this.api.get<any>('/finance/fee-types').subscribe((r) => this.feeTypes.set(r.data));
+    this.api.get<any>('/finance/responsible-guardians').subscribe((r) => this.responsibleGuardians.set(r.data));
     this.api.get<any>('/accounts/expense-categories').subscribe((r) => this.categories.set(r.data));
     this.api.get<any>('/accounts/expenses').subscribe((r) => this.expenses.set(r.data));
   }
@@ -868,11 +884,11 @@ export class FinanceComponent implements OnInit {
       .put<any>(`/finance/discounts/${d.StudentDiscountId}/status`, { IsActive: !d.IsActive })
       .subscribe({ next: (r) => this.done(r), error: (e) => this.failed(e) });
   }
-  adjust(invoice: any) {
-    const type = prompt('Adjustment type: Credit or Debit', 'Credit');
+  async adjust(invoice: any) {
+    const type = await this.dialog.prompt('Adjustment type: Credit or Debit', 'Credit');
     if (!type || !['Credit', 'Debit'].includes(type)) return;
-    const amount = prompt('Adjustment amount');
-    const reason = prompt('Reason for adjustment');
+    const amount = await this.dialog.prompt('Adjustment amount', '', 'number');
+    const reason = await this.dialog.prompt('Reason for adjustment');
     if (!amount || !reason) return;
     this.api
       .post<any>(`/finance/invoices/${invoice.InvoiceId}/adjustments`, {
@@ -925,27 +941,27 @@ export class FinanceComponent implements OnInit {
       })
       .subscribe((r) => this.done(r));
   }
-  addFeeType() {
-    const name = prompt('Fee type name');
+  async addFeeType() {
+    const name = await this.dialog.prompt('Fee type name');
     if (name)
       this.api.post<any>('/finance/fee-types', { FeeTypeName: name }).subscribe((r) => {
         this.message.set(r.message);
         this.loadAll();
       });
   }
-  addCategory() {
-    const name = prompt('Expense category name');
+  async addCategory() {
+    const name = await this.dialog.prompt('Expense category name');
     if (name)
       this.api.post<any>('/accounts/expense-categories', { CategoryName: name }).subscribe((r) => {
         this.message.set(r.message);
         this.loadAll();
       });
   }
-  reverse(p: any) {
-    const type = prompt('Type Void or Refund', 'Refund');
+  async reverse(p: any) {
+    const type = await this.dialog.prompt('Type Void or Refund', 'Refund');
     if (!type || !['Void', 'Refund'].includes(type)) return;
-    const amount = prompt('Amount', p.Amount);
-    const reason = prompt('Reason');
+    const amount = await this.dialog.prompt('Amount', p.Amount, 'number');
+    const reason = await this.dialog.prompt('Reason');
     if (amount && reason)
       this.api
         .post<any>(`/finance/payments/${p.PaymentId}/reverse`, {

@@ -8,10 +8,6 @@ Route::match(['get', 'put'], 'settings', [SystemController::class, 'settings'])-
 Route::get('feedback', [SystemController::class, 'feedback'])->middleware('permission:feedback.manage');
 Route::post('feedback', [SystemController::class, 'feedback']);
 Route::put('feedback/{feedback}', [SystemController::class, 'respond'])->middleware('permission:feedback.manage');
-Route::match(['get', 'post'], 'sms/templates', [SystemController::class, 'smsTemplates'])->middleware('permission:sms.send');
-Route::match(['get', 'put'], 'sms/settings', [SystemController::class, 'smsSettings'])->middleware('permission:sms.configure');
-Route::post('sms/send', [SystemController::class, 'sendSms'])->middleware('permission:sms.send');
-Route::get('sms/logs', [SystemController::class, 'smsLogs'])->middleware('permission:sms.send');
 Route::get('users', [UserManagementController::class, 'index'])->middleware('permission:users.manage');
 Route::post('users', [UserManagementController::class, 'store'])->middleware('permission:users.manage');
 Route::put('users/{user}', [UserManagementController::class, 'update'])->middleware('permission:users.manage');

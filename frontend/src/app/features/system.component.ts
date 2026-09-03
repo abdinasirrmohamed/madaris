@@ -1,7 +1,8 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { ApiService } from '../core/api.service';
 import { ActivatedRoute } from '@angular/router';
+import { DialogService } from '../core/dialog.service';
 @Component({
   standalone: true,
   imports: [ReactiveFormsModule],
@@ -421,6 +422,7 @@ import { ActivatedRoute } from '@angular/router';
   ],
 })
 export class SystemComponent implements OnInit {
+  private dialog = inject(DialogService);
   tabs = [
     { key: 'settings', label: 'Settings', path: '/settings' },
     { key: 'feedback', label: 'Feedback', path: '/feedback' },
@@ -526,9 +528,9 @@ export class SystemComponent implements OnInit {
       this.select('feedback');
     });
   }
-  respond(f: any) {
-    const Response = prompt('Response');
-    const Status = prompt('Status: Assigned, In progress, Resolved or Closed', 'Resolved');
+  async respond(f: any) {
+    const Response = await this.dialog.prompt('Response');
+    const Status = await this.dialog.prompt('Status: Assigned, In progress, Resolved or Closed', 'Resolved');
     if (Response && Status)
       this.api.put<any>(`/feedback/${f.SuggestionId}`, { Response, Status }).subscribe((r) => {
         this.message.set(r.message);
@@ -548,19 +550,19 @@ export class SystemComponent implements OnInit {
       this.select('sms');
     });
   }
-  addTemplate() {
-    const TemplateName = prompt('Template name'),
-      TemplateBody = prompt('Template text');
+  async addTemplate() {
+    const TemplateName = await this.dialog.prompt('Template name'),
+      TemplateBody = await this.dialog.prompt('Template text');
     if (TemplateName && TemplateBody)
       this.api.post<any>('/sms/templates', { TemplateName, TemplateBody }).subscribe((r) => {
         this.message.set(r.message);
         this.select('sms');
       });
   }
-  provider() {
-    const ProviderName = prompt('Provider name'),
-      ApiKey = prompt('API key'),
-      SenderId = prompt('Sender ID');
+  async provider() {
+    const ProviderName = await this.dialog.prompt('Provider name'),
+      ApiKey = await this.dialog.prompt('API key', '', 'password'),
+      SenderId = await this.dialog.prompt('Sender ID');
     if (ProviderName && ApiKey && SenderId)
       this.api
         .put<any>('/sms/settings', { ProviderName, ApiKey, SenderId, IsActive: true })

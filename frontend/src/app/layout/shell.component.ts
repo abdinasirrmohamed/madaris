@@ -7,6 +7,7 @@ import { FooterComponent } from './footer/footer.component';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ApiService } from '../core/api.service';
 import { ToastService } from '../core/toast.service';
+import { DialogService } from '../core/dialog.service';
 
 @Component({
   standalone: true,
@@ -41,6 +42,33 @@ import { ToastService } from '../core/toast.service';
         <button [class]="toast.kind" (click)="toasts.dismiss(toast.id)">{{ toast.text }} <b>×</b></button>
       }
     </div>
+    @if (dialog.request(); as request) {
+      <div class="dialog-backdrop" (click)="dialog.cancel()">
+        <section class="dialog-card" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+          <header><h2>{{ request.title }}</h2><button type="button" (click)="dialog.cancel()">×</button></header>
+          @if (request.message) { <p>{{ request.message }}</p> }
+          <div class="dialog-fields">
+            @for (field of request.fields || []; track field.key) {
+              <label>{{ field.label }}
+                @if (field.type === 'choice') {
+                  <div class="dialog-choices">
+                    @for (choice of field.choices || []; track choice.value) {
+                      <button type="button" [class.selected]="dialog.values()[field.key] === choice.value" (click)="dialog.chooseValue(field.key, choice.value)">{{ choice.label }}</button>
+                    }
+                  </div>
+                } @else if (field.type === 'textarea') {
+                  <textarea [placeholder]="field.placeholder || ''" [value]="dialog.values()[field.key]" (input)="dialog.setValue(field.key, $any($event.target).value)"></textarea>
+                } @else {
+                  <input [type]="field.type || 'text'" [placeholder]="field.placeholder || ''" [value]="dialog.values()[field.key]" (input)="dialog.setValue(field.key, $any($event.target).value)" />
+                }
+              </label>
+            }
+          </div>
+          @if (dialog.error()) { <p class="dialog-error">{{ dialog.error() }}</p> }
+          <footer><button type="button" class="cancel" (click)="dialog.cancel()">{{ request.cancelText || 'Cancel' }}</button>@if (request.fields?.[0]?.type !== 'choice') {<button type="button" class="confirm" [class.danger]="request.danger" (click)="dialog.submit()">{{ request.confirmText || 'Save' }}</button>}</footer>
+        </section>
+      </div>
+    }
     @if (routeLoading()) {
       <div class="route-loader" aria-live="polite" aria-label="Loading page">
         <div class="loader-card">
@@ -96,6 +124,27 @@ import { ToastService } from '../core/toast.service';
       .toast-stack button { display:flex; justify-content:space-between; padding:12px 14px; border:0; border-radius:9px; background:#e8f7ef; color:#147a54; box-shadow:0 9px 28px #11243a30; text-align:left; font-size:10px; font-weight:700; }
       .toast-stack button.error { background:#fff1f2; color:#b42318; }
       .toast-stack button.info { background:#e9f4ff; color:#15549c; }
+      .dialog-backdrop { position:fixed; inset:0; z-index:6000; display:grid; place-items:center; padding:20px; background:rgba(10,18,35,.62); backdrop-filter:blur(8px); animation:dialogFade .16s ease-out; }
+      .dialog-card { width:min(500px,100%); max-height:calc(100vh - 40px); overflow:auto; padding:26px; border-radius:14px; background:white; box-shadow:0 28px 90px #07142b70; }
+      .dialog-card header { display:flex; align-items:center; justify-content:space-between; padding-bottom:18px; border-bottom:1px solid #e2e7ee; }
+      .dialog-card h2 { margin:0; color:#17213a; font-size:20px; }
+      .dialog-card header button { border:0; background:none; color:#7b8494; font-size:26px; cursor:pointer; }
+      .dialog-card > p { color:#667085; font-size:12px; line-height:1.6; }
+      .dialog-fields { display:grid; gap:15px; margin-top:18px; }
+      .dialog-fields label { display:grid; gap:7px; color:#273142; font-size:11px; font-weight:700; }
+      .dialog-fields input,.dialog-fields textarea { width:100%; box-sizing:border-box; padding:12px 14px; border:1px solid #d3dae5; border-radius:8px; outline:none; font:inherit; }
+      .dialog-fields input:focus,.dialog-fields textarea:focus { border-color:#2457d6; box-shadow:0 0 0 3px #2457d619; }
+      .dialog-fields textarea { min-height:90px; resize:vertical; }
+      .dialog-choices { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+      .dialog-choices button { padding:12px; border:1px solid #d3dae5; border-radius:8px; background:white; color:#273142; font-weight:700; cursor:pointer; }
+      .dialog-choices button:hover,.dialog-choices button.selected { border-color:#2457d6; background:#eef4ff; color:#2457d6; box-shadow:0 0 0 3px #2457d612; }
+      .dialog-card footer { display:flex; justify-content:flex-end; gap:10px; margin-top:24px; }
+      .dialog-card footer button { min-width:94px; padding:11px 18px; border-radius:8px; font-weight:700; cursor:pointer; }
+      .dialog-card .cancel { border:1px solid #d5dce6; background:white; color:#535d6f; }
+      .dialog-card .confirm { border:0; background:#2457d6; color:white; box-shadow:0 7px 16px #2457d633; }
+      .dialog-card .confirm.danger { background:#c93636; }
+      .dialog-error { padding:9px 11px; border-radius:7px; background:#fff1f2; color:#b42318 !important; }
+      @keyframes dialogFade { from { opacity:0; } }
       .route-loader { position:fixed; inset:0; z-index:5000; display:grid; place-items:center; padding:22px; background:rgba(5,10,28,.72); backdrop-filter:blur(7px); animation:loaderFade .16s ease-out; }
       .loader-card { width:min(470px,100%); padding:28px 30px 24px; border:1px solid #ffffff24; border-radius:18px; background:linear-gradient(145deg,#15134b,#211e75); box-shadow:0 28px 90px #0009, inset 0 1px #ffffff1c; color:white; }
       .loader-card img { display:block; width:72px; height:62px; margin:0 auto 8px; object-fit:contain; filter:drop-shadow(0 7px 10px #0008); animation:logoFloat 1.2s ease-in-out infinite alternate; }
@@ -151,7 +200,7 @@ export class ShellComponent {
   routeLoading = signal(false);
   routeProgress = signal(0);
   private progressTimers: number[] = [];
-  constructor(public auth: AuthService, private api: ApiService, public toasts: ToastService, router: Router) {
+  constructor(public auth: AuthService, private api: ApiService, public toasts: ToastService, public dialog: DialogService, router: Router) {
     router.events.subscribe(event => {
       if (event instanceof NavigationStart) this.startRouteLoader();
       if (event instanceof NavigationEnd || event instanceof NavigationCancel || event instanceof NavigationError) this.finishRouteLoader();

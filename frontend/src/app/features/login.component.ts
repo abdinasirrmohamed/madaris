@@ -60,5 +60,5 @@ export class LoginComponent {
   loading=signal(false);error=signal('');showPassword=signal(false);readonly year=new Date().getFullYear();
   form=new FormGroup({Email:new FormControl('',[Validators.required,Validators.email]),Password:new FormControl('',Validators.required),DeviceName:new FormControl('Madaaris Web')});
   constructor(private auth:AuthService,private router:Router){}
-  submit(){if(this.form.invalid||this.loading()){this.form.markAllAsTouched();return}this.loading.set(true);this.error.set('');this.auth.login(this.form.getRawValue()).subscribe({next:()=>this.router.navigateByUrl(this.auth.user()?.TenantId===null?'/platform':'/dashboard'),error:e=>{this.loading.set(false);this.error.set(e.error?.message||'Gelitaanka ma suurtagelin. Dib u hubi xogtaada.')}})}
+  submit(){if(this.form.invalid||this.loading()){this.form.markAllAsTouched();return}this.loading.set(true);this.error.set('');this.auth.login(this.form.getRawValue()).subscribe({next:()=>this.router.navigateByUrl(this.auth.user()?.TenantId===null?'/platform':this.auth.user()?.IsParent?'/parent':'/dashboard'),error:e=>{this.loading.set(false);this.error.set(e.error?.message||'Gelitaanka ma suurtagelin. Dib u hubi xogtaada.')}})}
 }

@@ -1,8 +1,9 @@
-import { Component, OnInit, computed, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../core/api.service';
 import { ToastService } from '../core/toast.service';
+import { DialogService } from '../core/dialog.service';
 @Component({
   standalone: true,
   imports: [ReactiveFormsModule, RouterLink],
@@ -456,6 +457,7 @@ import { ToastService } from '../core/toast.service';
   ],
 })
 export class UsersComponent implements OnInit {
+  private dialog = inject(DialogService);
   users = signal<any[]>([]);
   roles = signal<any[]>([]);
   branches = signal<any[]>([]);
@@ -594,18 +596,18 @@ export class UsersComponent implements OnInit {
       },
     });
   }
-  toggle(u: any) {
+  async toggle(u: any) {
     const Status = u.Status === 'Active' ? 'Suspended' : 'Active';
-    if (confirm(`${Status} ${u.Name}?`))
+    if (await this.dialog.confirm('Change user status', `${Status} ${u.Name}?`))
       this.api.put<any>(`/users/${u.UserId}/status`, { Status }).subscribe((r) => {
         this.message.set(r.message);
         this.load();
       });
   }
-  resetPassword(u: any) {
-    const Password = prompt(`New password for ${u.Name} (minimum 10 characters)`);
+  async resetPassword(u: any) {
+    const Password = await this.dialog.prompt(`New password for ${u.Name} (minimum 10 characters)`, '', 'password');
     if (!Password) return;
-    const confirmation = prompt('Confirm the new password');
+    const confirmation = await this.dialog.prompt('Confirm the new password', '', 'password');
     if (Password !== confirmation) {
       this.message.set('Passwords do not match.');
       return;
@@ -614,8 +616,8 @@ export class UsersComponent implements OnInit {
       .put<any>(`/users/${u.UserId}/password`, { Password, Password_confirmation: confirmation })
       .subscribe((r) => this.message.set(r.message));
   }
-  archive(u: any) {
-    if (confirm(`Archive ${u.Name}? The user will lose access.`))
+  async archive(u: any) {
+    if (await this.dialog.confirm('Archive user', `Archive ${u.Name}? The user will lose access.`, true))
       this.api.delete<any>(`/users/${u.UserId}`).subscribe((r) => {
         this.message.set(r.message);
         this.load();

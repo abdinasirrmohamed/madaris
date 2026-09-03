@@ -1,8 +1,9 @@
 import { CurrencyPipe } from '@angular/common';
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { ApiService } from '../core/api.service';
+import { DialogService } from '../core/dialog.service';
 @Component({
   standalone: true,
   imports: [ReactiveFormsModule, CurrencyPipe],
@@ -12,8 +13,8 @@ import { ApiService } from '../core/api.service';
         <h1>HRM</h1>
         <span>Employees, teachers, attendance and payroll.</span>
       </div>
-      @if (tab() === 'employees' || tab() === 'payroll') {
-        <button (click)="drawer.set(true)">＋ {{ tab() === 'employees' ? 'Add employee' : 'Prepare payroll' }}</button>
+      @if (tab() === 'employees' || tab() === 'teachers' || tab() === 'teacher-assignments' || tab() === 'payroll') {
+        <button (click)="openDrawer()">＋ {{ tab() === 'employees' ? 'Add employee' : tab() === 'teachers' ? 'Add teacher' : tab() === 'teacher-assignments' ? 'Assign teacher' : 'Prepare payroll' }}</button>
       }
     </header>
     <nav>
@@ -23,7 +24,7 @@ import { ApiService } from '../core/api.service';
         Employee Attendance</button
       ><button [class.active]="tab() === 'attendance-reports'" (click)="selectTab('attendance-reports')">Attendance Reports</button
       ><button [class.active]="tab() === 'teachers'" (click)="tab.set('teachers')">Teachers</button
-      ><button [class.active]="tab() === 'teacher-assignments'" (click)="tab.set('teacher-assignments')">Teacher Assignments</button
+      ><button [class.active]="tab() === 'teacher-assignments'" (click)="selectTab('teacher-assignments')">Teacher Assignments</button
       ><button [class.active]="tab() === 'payroll'" (click)="tab.set('payroll')">Payroll</button>
     </nav>
     @if (message()) {
@@ -37,9 +38,12 @@ import { ApiService } from '../core/api.service';
               <th>Employee</th>
               <th>Number</th>
               <th>Phone</th>
-              <th>Teacher</th>
+              <th>Job role</th>
+              <th>System access</th>
+              <th>Shift</th>
               <th>Salary</th>
               <th>Status</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody>
@@ -51,9 +55,12 @@ import { ApiService } from '../core/api.service';
                 </td>
                 <td>{{ e.EmployeeNo }}</td>
                 <td>{{ e.Phone }}</td>
-                <td>{{ e.IsTeacher ? 'Yes' : 'No' }}</td>
+                <td>{{ e.EmploymentRole }}</td>
+                <td><span class="access" [class.enabled]="e.UserId">{{ e.UserId ? (e.SystemRole || 'Enabled') : 'Employee only' }}</span></td>
+                <td>{{ e.ShiftName || 'Not assigned' }}</td>
                 <td>{{ e.BasicSalary | currency: 'USD' }}</td>
                 <td>{{ e.Status }}</td>
+                <td><div class="actions"><button type="button" class="edit" (click)="editEmployee(e)">Edit</button><button type="button" class="delete" (click)="deleteEmployee(e)">Delete</button></div></td>
               </tr>
             }
           </tbody>
@@ -118,16 +125,23 @@ import { ApiService } from '../core/api.service';
     }
     @if (tab() === 'teachers') {
       <section class="card">
-        <table><thead><tr><th>Teacher</th><th>Employee number</th><th>Phone</th><th>Email</th><th>Status</th></tr></thead>
+        <table><thead><tr><th>Teacher</th><th>Employee number</th><th>Shift</th><th>Salary</th><th>Phone</th><th>User access</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody>@for (teacher of teachers(); track teacher.EmployeeId) {
-            <tr><td><b>{{ teacher.FullName }}</b></td><td>{{ teacher.EmployeeNo }}</td><td>{{ teacher.Phone }}</td><td>{{ teacher.Email }}</td><td>{{ teacher.Status }}</td></tr>
+            <tr><td><b>{{ teacher.FullName }}</b><small>{{ teacher.Email }}</small></td><td>{{ teacher.EmployeeNo }}</td><td>{{ teacher.ShiftName || 'Not assigned' }}</td><td>{{ teacher.BasicSalary | currency: 'USD' }}</td><td>{{ teacher.Phone }}</td><td><span class="access" [class.enabled]="teacher.UserId">{{ teacher.UserId ? 'Enabled' : 'Not created' }}</span></td><td>{{ teacher.Status }}</td><td><div class="actions"><button type="button" class="edit" (click)="editEmployee(teacher)">Edit</button><button type="button" class="delete" (click)="deleteEmployee(teacher)">Delete</button></div></td></tr>
           }</tbody>
         </table>
         @if (!teachers().length) { <div class="empty">No teachers registered.</div> }
       </section>
     }
     @if (tab() === 'teacher-assignments') {
-      <section class="card"><div class="empty"><b>Teacher assignments</b><span>Separate workspace for assigning teachers to classes and subjects.</span></div></section>
+      <section class="card">
+        <table><thead><tr><th>Teacher</th><th>Class</th><th>Subject</th><th>Academic Year</th><th>Action</th></tr></thead>
+          <tbody>@for (assignment of teacherAssignments(); track assignment.TeacherAssignmentId) {
+            <tr><td><b>{{ assignment.TeacherName }}</b></td><td>{{ assignment.ClassName }}</td><td>{{ assignment.SubjectName }}</td><td>{{ assignment.YearName }}</td><td><button type="button" class="delete" (click)="deleteTeacherAssignment(assignment)">Delete</button></td></tr>
+          }</tbody>
+        </table>
+        @if (!teacherAssignments().length) { <div class="empty">No teacher assignments registered.</div> }
+      </section>
     }
     @if (tab() === 'payroll') {
       <section class="card">
@@ -167,10 +181,10 @@ import { ApiService } from '../core/api.service';
     @if (drawer()) {
       <aside class="drawer">
         <header>
-          <h2>{{ tab() === 'employees' ? 'Add employee' : 'Prepare payroll' }}</h2>
-          <button (click)="drawer.set(false)">×</button>
+          <h2>{{ tab() === 'employees' || tab() === 'teachers' ? (editingEmployeeId() ? 'Edit employee' : tab() === 'teachers' ? 'Add teacher' : 'Add employee') : tab() === 'teacher-assignments' ? 'Assign teacher' : 'Prepare payroll' }}</h2>
+          <button (click)="closeDrawer()">×</button>
         </header>
-        @if (tab() === 'employees') {
+        @if (tab() === 'employees' || tab() === 'teachers') {
           <form [formGroup]="employeeForm" (ngSubmit)="saveEmployee()">
             <label
               >Branch<select formControlName="BranchId">
@@ -192,21 +206,45 @@ import { ApiService } from '../core/api.service';
               ><label>Phone<input formControlName="Phone" /></label>
             </div>
             <label>Email<input type="email" formControlName="Email" /></label>
+            <label>Job role<select formControlName="EmploymentRole" (change)="syncEmployeeRole()"><option>Teacher</option><option>Finance Officer</option><option>Examiner</option><option>Report Viewer</option><option>HR Officer</option><option>Registrar</option><option>Staff</option></select></label>
             <div class="pair">
               <label>Hire date<input type="date" formControlName="HireDate" /></label
               ><label>Basic salary<input type="number" formControlName="BasicSalary" /></label>
             </div>
             <label class="check"
-              ><input type="checkbox" formControlName="IsTeacher" /> This employee is a
-              teacher</label
-            ><label
+              ><input type="checkbox" formControlName="IsTeacher" /> This employee is a teacher</label
+            >
+            @if (employeeForm.controls.IsTeacher.value) {
+              <label>Teacher shift<select formControlName="ShiftId"><option value="">Select shift</option>@for (shift of shifts(); track shift.ShiftId) {<option [value]="shift.ShiftId">{{ shift.Name }} ({{ shift.StartTime }} - {{ shift.EndTime }})</option>}</select></label>
+            }
+            @if (!editingEmployeeId() || !employeeForm.controls.HasUser.value) {
+              <section class="user-access">
+                <label class="check"><input type="checkbox" formControlName="CreateUser" /> Give this employee system access</label>
+                <p>The employee can be saved without a login. Enable this only when they need to use the system.</p>
+                @if (employeeForm.controls.CreateUser.value) {
+                  <div class="pair"><label>System role<select formControlName="SystemRole"><option>Teacher</option><option>Finance Officer</option><option>Examiner</option><option>Report Viewer</option><option>HR Officer</option><option>Registrar</option></select></label><label>Temporary password<input type="password" formControlName="Password" minlength="8" /></label></div>
+                  <small class="hint">The user must change this password after signing in.</small>
+                }
+              </section>
+            } @else {
+              <div class="linked-user">✓ System account linked: {{ employeeForm.controls.Email.value }}</div>
+            }
+            <label
               >Status<select formControlName="Status">
                 <option>Active</option>
                 <option>Inactive</option>
                 <option>Suspended</option>
                 <option>Terminated</option>
               </select></label
-            ><button class="primary">Save employee</button>
+            ><button class="primary">{{ editingEmployeeId() ? 'Update employee' : 'Save employee' }}</button>
+          </form>
+        } @else if (tab() === 'teacher-assignments') {
+          <form [formGroup]="teacherAssignmentForm" (ngSubmit)="saveTeacherAssignment()">
+            <label>Teacher<select formControlName="EmployeeId" (change)="syncAssignmentClass()">@for (teacher of assignmentTeachers(); track teacher.EmployeeId) {<option [value]="teacher.EmployeeId">{{ teacher.FullName }}</option>}</select></label>
+            <label>Academic Year<select formControlName="AcademicYearId" (change)="syncAssignmentClass()">@for (year of assignmentYears(); track year.AcademicYearId) {<option [value]="year.AcademicYearId">{{ year.Name }}</option>}</select></label>
+            <label>Class<select formControlName="ClassId">@for (classRow of availableAssignmentClasses(); track classRow.ClassId) {<option [value]="classRow.ClassId">{{ classRow.Name }}</option>}</select></label>
+            <label>Subject<select formControlName="SubjectId">@for (subject of assignmentSubjects(); track subject.SubjectId) {<option [value]="subject.SubjectId">{{ subject.SubjectName }}</option>}</select></label>
+            <button class="primary">Save assignment</button>
           </form>
         } @else {
           <form [formGroup]="payrollForm" (ngSubmit)="savePayroll()">
@@ -395,7 +433,16 @@ import { ApiService } from '../core/api.service';
       }
       .check {
         display: flex !important;
+        align-items: center;
+        gap: 8px !important;
       }
+      .user-access { margin:16px 0; padding:14px; border:1px solid #dce6f1; border-radius:9px; background:#f7faff; }
+      .user-access p { margin:-5px 0 10px; color:#6c7a8d; font-size:9px; line-height:1.5; }
+      .hint { display:block; color:#17735f; margin-top:5px; }
+      .linked-user { margin:14px 0; padding:11px; border-radius:8px; background:#e7f7f1; color:#147a54; font-size:10px; font-weight:700; }
+      .access { display:inline-block; padding:5px 8px; border-radius:12px; background:#f1f3f7; color:#667085; font-weight:700; white-space:nowrap; }
+      .access.enabled { background:#e5f7ef; color:#147a54; }
+      .actions { display:flex; gap:6px; }
       .primary {
         width: 100%;
       }
@@ -404,6 +451,20 @@ import { ApiService } from '../core/api.service';
         color: #147a54;
         padding: 10px;
         border-radius: 7px;
+      }
+      .edit {
+        border: 1px solid #211e75;
+        border-radius: 6px;
+        background: white;
+        color: #211e75;
+        padding: 6px 10px;
+      }
+      .delete {
+        border: 1px solid #c83b3b;
+        border-radius: 6px;
+        background: white;
+        color: #b42323;
+        padding: 6px 10px;
       }
       @media (max-width: 700px) {
         .drawer {
@@ -417,12 +478,20 @@ import { ApiService } from '../core/api.service';
   ],
 })
 export class HrmComponent implements OnInit {
+  private dialog = inject(DialogService);
   tab = signal('employees');
   drawer = signal(false);
+  editingEmployeeId = signal<number | null>(null);
   message = signal('');
   employees = signal<any[]>([]);
   payroll = signal<any[]>([]);
   branches = signal<any[]>([]);
+  shifts = signal<any[]>([]);
+  teacherAssignments = signal<any[]>([]);
+  assignmentTeachers = signal<any[]>([]);
+  assignmentClasses = signal<any[]>([]);
+  assignmentSubjects = signal<any[]>([]);
+  assignmentYears = signal<any[]>([]);
   attendanceRows = signal<any[]>([]);
   attendanceHistory = signal<any[]>([]);
   today = new Date().toISOString().slice(0, 10);
@@ -430,6 +499,7 @@ export class HrmComponent implements OnInit {
   reportDate = new FormControl('');
   employeeForm = new FormGroup({
     BranchId: new FormControl<any>(''),
+    ShiftId: new FormControl<any>(''),
     EmployeeNo: new FormControl(''),
     FullName: new FormControl(''),
     Gender: new FormControl('Male'),
@@ -438,6 +508,11 @@ export class HrmComponent implements OnInit {
     HireDate: new FormControl(this.today),
     BasicSalary: new FormControl(0),
     IsTeacher: new FormControl(false),
+    EmploymentRole: new FormControl('Staff'),
+    CreateUser: new FormControl(false),
+    HasUser: new FormControl(false),
+    SystemRole: new FormControl('Report Viewer'),
+    Password: new FormControl(''),
     Status: new FormControl('Active'),
   });
   payrollForm = new FormGroup({
@@ -447,6 +522,12 @@ export class HrmComponent implements OnInit {
     PayPeriodYear: new FormControl(new Date().getFullYear()),
     Allowances: new FormControl(0),
     Deductions: new FormControl(0),
+  });
+  teacherAssignmentForm = new FormGroup({
+    EmployeeId: new FormControl<any>(''),
+    ClassId: new FormControl<any>(''),
+    SubjectId: new FormControl<any>(''),
+    AcademicYearId: new FormControl<any>(''),
   });
   constructor(private api: ApiService, private route: ActivatedRoute) {}
   ngOnInit() {
@@ -462,6 +543,10 @@ export class HrmComponent implements OnInit {
       this.employeeForm.patchValue({ BranchId: r.data[0]?.BranchId });
       this.payrollForm.patchValue({ BranchId: r.data[0]?.BranchId });
     });
+    this.api.get<any>('/hrm/shifts').subscribe((r) => {
+      this.shifts.set(r.data.filter((shift: any) => shift.Status === 'Active'));
+    });
+    this.loadTeacherAssignments();
   }
   load() {
     this.api.get<any>('/hrm/employees').subscribe((r) => {
@@ -473,6 +558,17 @@ export class HrmComponent implements OnInit {
   selectTab(tab: string) {
     this.tab.set(tab);
     if (tab === 'attendance-reports') this.loadAttendanceReport();
+    if (tab === 'teacher-assignments') this.loadTeacherAssignments();
+  }
+  loadTeacherAssignments() {
+    this.api.get<any>('/hrm/teacher-assignments').subscribe((r) => this.teacherAssignments.set(r.data));
+    this.api.get<any>('/hrm/teacher-assignment-options').subscribe((r) => {
+      this.assignmentTeachers.set(r.data.teachers);
+      this.assignmentClasses.set(r.data.classes);
+      this.assignmentSubjects.set(r.data.subjects);
+      this.assignmentYears.set(r.data.academicYears);
+      this.resetTeacherAssignmentForm();
+    });
   }
   teachers() {
     return this.employees().filter((employee) => !!employee.IsTeacher);
@@ -486,13 +582,121 @@ export class HrmComponent implements OnInit {
   }
   saveEmployee() {
     const v: any = this.employeeForm.getRawValue();
-    this.api
-      .post<any>('/hrm/employees', {
-        ...v,
-        BranchId: Number(v.BranchId),
-        BasicSalary: Number(v.BasicSalary),
-      })
-      .subscribe((r) => this.done(r));
+    const payload = {
+      ...v,
+      BranchId: Number(v.BranchId),
+      ShiftId: v.IsTeacher && v.ShiftId ? Number(v.ShiftId) : null,
+      BasicSalary: Number(v.BasicSalary),
+    };
+    const request = this.editingEmployeeId()
+      ? this.api.put<any>(`/hrm/employees/${this.editingEmployeeId()}`, payload)
+      : this.api.post<any>('/hrm/employees', payload);
+    request.subscribe((r) => this.done(r));
+  }
+  editEmployee(employee: any) {
+    this.editingEmployeeId.set(employee.EmployeeId);
+    this.employeeForm.reset({
+      BranchId: employee.BranchId,
+      ShiftId: employee.ShiftId ?? '',
+      EmployeeNo: employee.EmployeeNo,
+      FullName: employee.FullName,
+      Gender: employee.Gender ?? 'Male',
+      Phone: employee.Phone ?? '',
+      Email: employee.Email ?? '',
+      HireDate: String(employee.HireDate ?? this.today).slice(0, 10),
+      BasicSalary: Number(employee.BasicSalary),
+      IsTeacher: !!employee.IsTeacher,
+      EmploymentRole: employee.EmploymentRole || (employee.IsTeacher ? 'Teacher' : 'Staff'),
+      CreateUser: false,
+      HasUser: !!employee.UserId,
+      SystemRole: employee.SystemRole || this.systemRoleFor(employee.EmploymentRole),
+      Password: '',
+      Status: employee.Status,
+    });
+    this.drawer.set(true);
+  }
+  openDrawer() {
+    this.editingEmployeeId.set(null);
+    if (this.tab() === 'employees' || this.tab() === 'teachers') this.resetEmployeeForm(this.tab() === 'teachers');
+    if (this.tab() === 'teacher-assignments') this.resetTeacherAssignmentForm();
+    this.drawer.set(true);
+  }
+  closeDrawer() {
+    this.drawer.set(false);
+    this.editingEmployeeId.set(null);
+    if (this.tab() === 'employees' || this.tab() === 'teachers') this.resetEmployeeForm(this.tab() === 'teachers');
+  }
+  private resetEmployeeForm(asTeacher = false) {
+    this.employeeForm.reset({
+      BranchId: this.branches()[0]?.BranchId ?? '',
+      ShiftId: '',
+      EmployeeNo: '',
+      FullName: '',
+      Gender: 'Male',
+      Phone: '',
+      Email: '',
+      HireDate: this.today,
+      BasicSalary: 0,
+      IsTeacher: asTeacher,
+      EmploymentRole: asTeacher ? 'Teacher' : 'Staff',
+      CreateUser: false,
+      HasUser: false,
+      SystemRole: asTeacher ? 'Teacher' : 'Report Viewer',
+      Password: '',
+      Status: 'Active',
+    });
+  }
+  syncEmployeeRole() {
+    const role = this.employeeForm.controls.EmploymentRole.value || 'Staff';
+    this.employeeForm.patchValue({ IsTeacher: role === 'Teacher', SystemRole: this.systemRoleFor(role) });
+  }
+  private systemRoleFor(role: string | null) {
+    return ['Teacher', 'Finance Officer', 'Examiner', 'Report Viewer', 'HR Officer', 'Registrar'].includes(role || '') ? role! : 'Report Viewer';
+  }
+  async deleteEmployee(employee: any) {
+    if (!await this.dialog.confirm('Delete employee', `Delete ${employee.FullName}? Their linked user and teacher assignments will also be removed.`, true)) return;
+    this.api.delete<any>(`/hrm/employees/${employee.EmployeeId}`).subscribe((r) => {
+      this.message.set(r.message);
+      this.load();
+      this.loadTeacherAssignments();
+    });
+  }
+  private resetTeacherAssignmentForm() {
+    const EmployeeId = this.assignmentTeachers()[0]?.EmployeeId ?? '';
+    const AcademicYearId = this.assignmentYears().find((year: any) => year.Status === 'Active')?.AcademicYearId ?? this.assignmentYears()[0]?.AcademicYearId ?? '';
+    this.teacherAssignmentForm.reset({
+      EmployeeId,
+      ClassId: '',
+      SubjectId: this.assignmentSubjects()[0]?.SubjectId ?? '',
+      AcademicYearId,
+    });
+    this.syncAssignmentClass();
+  }
+  availableAssignmentClasses() {
+    const teacher = this.assignmentTeachers().find((row: any) => Number(row.EmployeeId) === Number(this.teacherAssignmentForm.controls.EmployeeId.value));
+    const yearId = Number(this.teacherAssignmentForm.controls.AcademicYearId.value);
+    return this.assignmentClasses().filter((row: any) => Number(row.BranchId) === Number(teacher?.BranchId) && Number(row.AcademicYearId) === yearId);
+  }
+  syncAssignmentClass() {
+    const classes = this.availableAssignmentClasses();
+    const selected = Number(this.teacherAssignmentForm.controls.ClassId.value);
+    if (!classes.some((row: any) => Number(row.ClassId) === selected)) this.teacherAssignmentForm.patchValue({ ClassId: classes[0]?.ClassId ?? '' });
+  }
+  saveTeacherAssignment() {
+    const v: any = this.teacherAssignmentForm.getRawValue();
+    const payload = Object.fromEntries(Object.entries(v).map(([key, value]) => [key, Number(value)]));
+    this.api.post<any>('/hrm/teacher-assignments', payload).subscribe((r) => {
+      this.message.set(r.message);
+      this.closeDrawer();
+      this.loadTeacherAssignments();
+    });
+  }
+  async deleteTeacherAssignment(assignment: any) {
+    if (!await this.dialog.confirm('Tirtir waajibaadka', 'Ma tirtirtaa waajibaadkan macallinka?', true)) return;
+    this.api.delete<any>(`/hrm/teacher-assignments/${assignment.TeacherAssignmentId}`).subscribe((r) => {
+      this.message.set(r.message);
+      this.loadTeacherAssignments();
+    });
   }
   setAttendance(id: number, e: Event) {
     this.attendanceRows.update((rows) =>
@@ -531,7 +735,7 @@ export class HrmComponent implements OnInit {
   }
   done(r: any) {
     this.message.set(r.message);
-    this.drawer.set(false);
+    this.closeDrawer();
     this.load();
   }
 }

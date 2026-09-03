@@ -15,7 +15,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(\App\Tenancy\TenantContext::class);
-        $this->app->bind(\App\Contracts\SmsGateway::class, \App\Services\LogSmsGateway::class);
+        $this->app->bind(\App\Contracts\SmsGateway::class, \App\Services\HttpSmsGateway::class);
     }
 
     /**

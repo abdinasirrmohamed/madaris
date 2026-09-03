@@ -1,7 +1,8 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { ApiService } from '../core/api.service';
+import { DialogService } from '../core/dialog.service';
 @Component({
   standalone: true,
   imports: [ReactiveFormsModule, RouterLink],
@@ -77,12 +78,12 @@ import { ApiService } from '../core/api.service';
         @for (g of guardians(); track g.GuardianId) {
           <article>
             <h3>{{ g.FullName }}</h3>
-            <p>{{ g.PrimaryPhone }} · {{ g.Relationship || 'Guardian' }}</p>
+            <p>{{ guardianPhones(g) }} · {{ g.Relationship || 'Guardian' }}</p>
             <small
-              >{{ g.Email || 'No email' }} · SMS
+              >{{ guardianEmails(g) }} · SMS
               {{ g.SmsConsent ? 'allowed' : 'not allowed' }}</small
             >
-            <h4>Linked students</h4>
+            <h4>Linked students ({{ g.Students.length }})</h4>
             @for (s of g.Students; track s.StudentId) {
               <a [routerLink]="['/students', s.StudentId]"
                 >{{ s.AdmissionNo }} · {{ s.FirstName }} {{ s.LastName }}</a
@@ -91,6 +92,7 @@ import { ApiService } from '../core/api.service';
               <span>No linked students</span>
             }
             <button (click)="link(g)">Link another student</button>
+            <button (click)="enablePortal(g)">Enable / reset parent portal</button>
           </article>
         } @empty {
           <div class="empty">No guardians found.</div>
@@ -398,6 +400,7 @@ import { ApiService } from '../core/api.service';
   ],
 })
 export class StudentOperationsComponent implements OnInit {
+  private dialog = inject(DialogService);
   tab = signal('inactive');
   students = signal<any[]>([]);
   allStudents = signal<any[]>([]);
@@ -458,13 +461,19 @@ export class StudentOperationsComponent implements OnInit {
       .get<any>('/guardians', { search: this.search.value || '' })
       .subscribe((r) => this.guardians.set(r.data));
   }
+  guardianPhones(g: any) {
+    return (g.Phones?.length ? g.Phones : [g.PrimaryPhone]).filter(Boolean).join(' · ');
+  }
+  guardianEmails(g: any) {
+    return (g.Emails?.length ? g.Emails : [g.Email]).filter(Boolean).join(' · ') || 'No email';
+  }
   loadDiscipline() {
     const params: any = {};
     if (this.status.value) params.Status = this.status.value;
     this.api.get<any>('/discipline', params).subscribe((r) => this.discipline.set(r.data));
   }
-  reactivate(s: any) {
-    const Reason = prompt('Reason for reactivation', 'Returned to school');
+  async reactivate(s: any) {
+    const Reason = await this.dialog.prompt('Reason for reactivation', 'Returned to school');
     if (Reason)
       this.api
         .post<any>(`/students/${s.StudentId}/status`, { Status: 'Active', Reason })
@@ -473,8 +482,8 @@ export class StudentOperationsComponent implements OnInit {
           this.load();
         });
   }
-  link(g: any) {
-    const StudentId = Number(prompt('Enter the student ID to link'));
+  async link(g: any) {
+    const StudentId = Number(await this.dialog.prompt('Enter the student ID to link', '', 'number'));
     if (StudentId)
       this.api
         .post<any>(`/guardians/${g.GuardianId}/students`, {
@@ -486,6 +495,24 @@ export class StudentOperationsComponent implements OnInit {
           this.message.set(r.message);
           this.loadGuardians();
         });
+  }
+  async enablePortal(g: any) {
+    const Email = g.Email || await this.dialog.prompt('Enter the parent email address', '', 'email');
+    if (!Email) return;
+    const Password = await this.dialog.prompt('Temporary password for this parent (minimum 10 characters)', '', 'password');
+    if (!Password) return;
+    this.api
+      .put<any>(`/guardians/${g.GuardianId}/portal`, { Email, Password, PortalStatus: 'Active' })
+      .subscribe({
+        next: (r) => {
+          const access = r.data;
+          this.message.set(
+            `${r.message} Login email: ${access.Login}.`,
+          );
+          this.loadGuardians();
+        },
+        error: (e) => this.message.set(e.error?.message || 'Unable to enable parent portal.'),
+      });
   }
   saveDiscipline() {
     const v: any = this.form.getRawValue();
@@ -502,9 +529,9 @@ export class StudentOperationsComponent implements OnInit {
         this.loadDiscipline();
       });
   }
-  resolve(d: any) {
-    const Status = prompt('Status: Open, Under Review, Resolved or Closed', d.Status);
-    const ResolutionNotes = prompt('Resolution / follow-up notes', d.ResolutionNotes || '');
+  async resolve(d: any) {
+    const Status = await this.dialog.prompt('Status: Open, Under Review, Resolved or Closed', d.Status);
+    const ResolutionNotes = await this.dialog.prompt('Resolution / follow-up notes', d.ResolutionNotes || '');
     if (Status)
       this.api
         .put<any>(`/discipline/${d.DisciplineRecordId}`, {

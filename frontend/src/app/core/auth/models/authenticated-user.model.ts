@@ -8,4 +8,6 @@ export interface AuthenticatedUser {
   MustChangePassword?: boolean;
   ProfilePhotoUrl?: string | null;
   Branches?: Array<{ BranchId: number; Name?: string }>;
+  Roles?: string[];
+  IsParent?: boolean;
 }

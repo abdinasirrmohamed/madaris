@@ -1,7 +1,8 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { ApiService } from '../core/api.service';
 import { ActivatedRoute } from '@angular/router';
+import { DialogService } from '../core/dialog.service';
 @Component({
   standalone: true,
   imports: [ReactiveFormsModule],
@@ -473,6 +474,7 @@ import { ActivatedRoute } from '@angular/router';
   ],
 })
 export class AttendanceComponent implements OnInit {
+  private dialog = inject(DialogService);
   tab = signal('take');
   classes = signal<any[]>([]);
   roster = signal<any[]>([]);
@@ -493,7 +495,7 @@ export class AttendanceComponent implements OnInit {
   ngOnInit() {
     this.route.paramMap.subscribe((params) => {
       const view = params.get('view');
-      const next = view === 'reports' ? 'report' : view === 'corrections' ? 'corrections' : 'take';
+      const next = view === 'reports' || view === 'history' ? 'report' : view === 'corrections' ? 'corrections' : 'take';
       this.tab.set(next);
       if (next === 'report') this.loadReport();
       if (next === 'corrections') { this.loadCorrections(); this.loadMissing(); }
@@ -546,10 +548,17 @@ export class AttendanceComponent implements OnInit {
     if (this.reportClass.value) p.ClassId = String(this.reportClass.value);
     this.api.get<any>('/attendance/report', p).subscribe((r) => this.report.set(r.data));
   }
-  correct(row: any) {
-    const status = prompt('New status: Present, Absent, Late, Excused, Sick or Leave', row.Status);
+  async correct(row: any) {
+    const status = await this.dialog.choose('Dooro xaaladda cusub', [
+      { value: 'Present', label: 'Jooga' },
+      { value: 'Absent', label: 'Maqan' },
+      { value: 'Late', label: 'Daahay' },
+      { value: 'Excused', label: 'La cudurdaartay' },
+      { value: 'Sick', label: 'Xanuunsan' },
+      { value: 'Leave', label: 'Fasax' },
+    ], row.Status);
     if (!status || !this.statuses.includes(status)) return;
-    const reason = prompt('Reason for correction');
+    const reason = await this.dialog.prompt('Sababta sixitaanka');
     if (!reason) return;
     this.api
       .post<any>(`/attendance/${row.AttendanceId}/corrections`, {
@@ -584,8 +593,8 @@ export class AttendanceComponent implements OnInit {
         error: (e) => this.show(e, true),
       });
   }
-  reject(row: any) {
-    const notes = prompt('Reason for rejection');
+  async reject(row: any) {
+    const notes = await this.dialog.prompt('Reason for rejection');
     if (!notes) return;
     this.api
       .post<any>(`/attendance/corrections/${row.AttendanceCorrectionId}/reject`, {

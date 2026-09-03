@@ -59,10 +59,12 @@ class ComprehensiveDemoSeeder extends Seeder
                 'SubjectType' => $s[2], 'MaximumMark' => 100, 'PassMark' => 50, 'IsActive' => true,
             ], 'SubjectId');
             $subjects[] = $subjectId;
-            for ($lesson = 1; $lesson <= 3; $lesson++) DB::table('Lessons')->insert([
-                'TenantId' => $tenantId, 'SubjectId' => $subjectId,
-                'LessonTitle' => $s[0].' - Casharka '.$lesson, 'SortOrder' => $lesson,
-            ]);
+            for ($lesson = 1; $lesson <= 3; $lesson++) {
+                DB::table('Lessons')->insert([
+                    'TenantId' => $tenantId, 'SubjectId' => $subjectId,
+                    'LessonTitle' => $s[0].' - Casharka '.$lesson, 'SortOrder' => $lesson,
+                ]);
+            }
         }
 
         $departmentId = DB::table('Departments')->insertGetId(['TenantId' => $tenantId, 'DepartmentName' => 'Waxbarashada'], 'DepartmentId');
@@ -109,9 +111,9 @@ class ComprehensiveDemoSeeder extends Seeder
         }
         $feeTypeId = DB::table('FeeTypes')->insertGetId(['TenantId' => $tenantId, 'FeeTypeName' => 'Monthly Tuition', 'IsActive' => true], 'FeeTypeId');
 
-        $maleFirst = ['Ahmed','Mohamed','Abdullahi','Yusuf','Abdirahman','Hassan','Ali','Omar','Hamza','Ibrahim'];
-        $femaleFirst = ['Amina','Hodan','Maryan','Sahra','Fadumo','Hibo','Ikram','Sumaya','Rahma','Nimco'];
-        $lastNames = ['Ali','Ahmed','Hassan','Nur','Abdi','Warsame','Mohamed','Omar','Yusuf','Adan'];
+        $maleFirst = ['Ahmed', 'Mohamed', 'Abdullahi', 'Yusuf', 'Abdirahman', 'Hassan', 'Ali', 'Omar', 'Hamza', 'Ibrahim'];
+        $femaleFirst = ['Amina', 'Hodan', 'Maryan', 'Sahra', 'Fadumo', 'Hibo', 'Ikram', 'Sumaya', 'Rahma', 'Nimco'];
+        $lastNames = ['Ali', 'Ahmed', 'Hassan', 'Nur', 'Abdi', 'Warsame', 'Mohamed', 'Omar', 'Yusuf', 'Adan'];
         $students = [];
         for ($i = 1; $i <= 50; $i++) {
             $female = $i % 2 === 0;
@@ -122,7 +124,7 @@ class ComprehensiveDemoSeeder extends Seeder
                 'TenantId' => $tenantId, 'BranchId' => $branchId, 'AdmissionNo' => sprintf('ADM-2026-%03d', $i),
                 'FirstName' => $first, 'MiddleName' => $lastNames[($i + 2) % 10], 'LastName' => $last,
                 'Gender' => $female ? 'Female' : 'Male', 'DateOfBirth' => now()->subYears(7 + ($i % 9))->subDays($i * 7)->toDateString(),
-                'Phone' => '+25261'.sprintf('%07d', 1000000 + $i), 'Address' => ['Hodan','Wadajir','Karaan','Yaqshiid','Dharkenley'][$i % 5].', Muqdisho',
+                'Phone' => '+25261'.sprintf('%07d', 1000000 + $i), 'Address' => ['Hodan', 'Wadajir', 'Karaan', 'Yaqshiid', 'Dharkenley'][$i % 5].', Muqdisho',
                 'AdmissionDate' => now()->subMonths($i % 12)->toDateString(),
                 'WelfareStatus' => $i % 11 === 0 ? 'Orphan' : ($i % 9 === 0 ? 'Sponsored' : 'Normal'),
                 'HealthNotes' => $i % 13 === 0 ? 'Requires regular check-up' : null, 'Status' => $status,
@@ -132,21 +134,27 @@ class ComprehensiveDemoSeeder extends Seeder
             $guardianId = DB::table('Guardians')->insertGetId([
                 'TenantId' => $tenantId, 'FullName' => 'Waalid '.$first.' '.$last, 'Gender' => $female ? 'Male' : 'Female',
                 'Relationship' => $i % 4 === 0 ? 'Mother' : 'Father', 'PrimaryPhone' => '+25261'.sprintf('%07d', 2000000 + $i),
-                'Email' => 'guardian'.$i.'@example.com', 'Address' => ['Hodan','Wadajir','Karaan'][$i % 3], 'SmsConsent' => true,
+                'Email' => 'guardian'.$i.'@example.com', 'Address' => ['Hodan', 'Wadajir', 'Karaan'][$i % 3], 'SmsConsent' => true,
             ], 'GuardianId');
             DB::table('StudentGuardians')->insert(['TenantId' => $tenantId, 'StudentId' => $studentId, 'GuardianId' => $guardianId, 'IsPrimary' => true, 'IsFeeResponsible' => true]);
             $classId = $classes[($i - 1) % count($classes)];
-            if ($status !== 'Applicant') DB::table('Enrollments')->insert([
-                'TenantId' => $tenantId, 'BranchId' => $branchId, 'StudentId' => $studentId, 'ClassId' => $classId,
-                'AcademicYearId' => $yearId, 'EnrolledAt' => now()->subMonths(2)->toDateString(),
-                'Status' => $status === 'Active' ? 'Active' : 'Completed', 'CreatedAt' => $now, 'UpdatedAt' => $now,
-            ]);
-            if ($status === 'Active') for ($d = 0; $d < 5; $d++) DB::table('Attendance')->insert([
-                'TenantId' => $tenantId, 'BranchId' => $branchId, 'StudentId' => $studentId, 'ClassId' => $classId,
-                'AttendanceDate' => now()->subDays($d)->toDateString(), 'Session' => 'Daily',
-                'Status' => (($i + $d) % 13 === 0) ? 'Absent' : ((($i + $d) % 9 === 0) ? 'Late' : 'Present'),
-                'MarkedBy' => $adminId, 'CreatedAt' => $now, 'UpdatedAt' => $now,
-            ]);
+            if ($status !== 'Applicant') {
+                DB::table('Enrollments')->insert([
+                    'TenantId' => $tenantId, 'BranchId' => $branchId, 'StudentId' => $studentId, 'ClassId' => $classId,
+                    'AcademicYearId' => $yearId, 'EnrolledAt' => now()->subMonths(2)->toDateString(),
+                    'Status' => $status === 'Active' ? 'Active' : 'Completed', 'CreatedAt' => $now, 'UpdatedAt' => $now,
+                ]);
+            }
+            if ($status === 'Active') {
+                for ($d = 0; $d < 5; $d++) {
+                    DB::table('Attendance')->insert([
+                        'TenantId' => $tenantId, 'BranchId' => $branchId, 'StudentId' => $studentId, 'ClassId' => $classId,
+                        'AttendanceDate' => now()->subDays($d)->toDateString(), 'Session' => 'Daily',
+                        'Status' => (($i + $d) % 13 === 0) ? 'Absent' : ((($i + $d) % 9 === 0) ? 'Late' : 'Present'),
+                        'MarkedBy' => $adminId, 'CreatedAt' => $now, 'UpdatedAt' => $now,
+                    ]);
+                }
+            }
             $total = [10, 15, 20][($i - 1) % 3];
             $paid = $i <= 30 ? $total : ($i <= 40 ? $total / 2 : 0);
             $invoiceId = DB::table('Invoices')->insertGetId([
@@ -156,24 +164,30 @@ class ComprehensiveDemoSeeder extends Seeder
                 'Status' => $paid >= $total ? 'Paid' : ($paid > 0 ? 'PartiallyPaid' : 'Issued'), 'CreatedAt' => $now, 'UpdatedAt' => $now,
             ], 'InvoiceId');
             DB::table('InvoiceItems')->insert(['TenantId' => $tenantId, 'InvoiceId' => $invoiceId, 'FeeTypeId' => $feeTypeId, 'Description' => 'Monthly school fee', 'Amount' => $total]);
-            if ($paid > 0) DB::table('Payments')->insert([
-                'TenantId' => $tenantId, 'BranchId' => $branchId, 'StudentId' => $studentId, 'InvoiceId' => $invoiceId,
-                'ReceiptNo' => sprintf('RCT-2026-%04d', $i), 'IdempotencyKey' => sprintf('00000000-0000-4000-8000-%012d', $i),
-                'Amount' => $paid, 'Method' => ['Cash','Bank','MobileMoney'][$i % 3], 'AccountId' => $accountIds[$i % 3],
-                'Status' => 'Completed', 'ReceivedBy' => $adminId, 'CreatedAt' => $now, 'UpdatedAt' => $now,
-            ]);
-            if ($i % 5 === 0) DB::table('StudentDiscounts')->insert([
-                'TenantId' => $tenantId, 'StudentId' => $studentId, 'DiscountType' => 'Percentage', 'Percentage' => 10,
-                'Reason' => $i % 10 === 0 ? 'Orphan support' : 'Family discount', 'ApprovedByUserId' => $adminId,
-                'StartDate' => now()->startOfMonth()->toDateString(), 'IsActive' => true,
-            ]);
-            if ($i <= 35) DB::table('QuranAssignments')->insert([
-                'TenantId' => $tenantId, 'BranchId' => $branchId, 'StudentId' => $studentId, 'TeacherId' => $adminId,
-                'LessonType' => $i % 3 === 0 ? 'Revision' : 'New lesson', 'SurahNo' => [1,36,67,112][$i % 4],
-                'FromAyah' => 1, 'ToAyah' => $i % 4 === 0 ? 4 : 7, 'AssignedDate' => now()->subDays(3)->toDateString(),
-                'DueDate' => now()->addDays(4)->toDateString(), 'RepetitionTarget' => 3,
-                'Status' => $i % 6 === 0 ? 'Completed' : 'Assigned', 'Notes' => 'Demo assignment', 'CreatedAt' => $now, 'UpdatedAt' => $now,
-            ]);
+            if ($paid > 0) {
+                DB::table('Payments')->insert([
+                    'TenantId' => $tenantId, 'BranchId' => $branchId, 'StudentId' => $studentId, 'InvoiceId' => $invoiceId,
+                    'ReceiptNo' => sprintf('RCT-2026-%04d', $i), 'IdempotencyKey' => sprintf('00000000-0000-4000-8000-%012d', $i),
+                    'Amount' => $paid, 'Method' => ['Cash', 'Bank', 'MobileMoney'][$i % 3], 'AccountId' => $accountIds[$i % 3],
+                    'Status' => 'Completed', 'ReceivedBy' => $adminId, 'CreatedAt' => $now, 'UpdatedAt' => $now,
+                ]);
+            }
+            if ($i % 5 === 0) {
+                DB::table('StudentDiscounts')->insert([
+                    'TenantId' => $tenantId, 'StudentId' => $studentId, 'DiscountType' => 'Percentage', 'Percentage' => 10,
+                    'Reason' => $i % 10 === 0 ? 'Orphan support' : 'Family discount', 'ApprovedByUserId' => $adminId,
+                    'StartDate' => now()->startOfMonth()->toDateString(), 'IsActive' => true,
+                ]);
+            }
+            if ($i <= 35) {
+                DB::table('QuranAssignments')->insert([
+                    'TenantId' => $tenantId, 'BranchId' => $branchId, 'StudentId' => $studentId, 'TeacherId' => $adminId,
+                    'LessonType' => $i % 3 === 0 ? 'Revision' : 'New lesson', 'SurahNo' => [1, 36, 67, 112][$i % 4],
+                    'FromAyah' => 1, 'ToAyah' => $i % 4 === 0 ? 4 : 7, 'AssignedDate' => now()->subDays(3)->toDateString(),
+                    'DueDate' => now()->addDays(4)->toDateString(), 'RepetitionTarget' => 3,
+                    'Status' => $i % 6 === 0 ? 'Completed' : 'Assigned', 'Notes' => 'Demo assignment', 'CreatedAt' => $now, 'UpdatedAt' => $now,
+                ]);
+            }
         }
 
         $examTypeId = DB::table('ExamTypes')->insertGetId(['TenantId' => $tenantId, 'TypeName' => 'Monthly Test'], 'ExamTypeId');
@@ -184,23 +198,29 @@ class ComprehensiveDemoSeeder extends Seeder
                 'ExamTitle' => 'Imtixaanka Billaha '.($i + 1), 'MaximumMark' => 100, 'PassMark' => 50, 'Status' => 'Published',
             ], 'ExamId');
             DB::table('ExamSchedules')->insert(['TenantId' => $tenantId, 'ExamId' => $examId, 'ExamDate' => now()->addDays($i + 2)->toDateString(), 'StartTime' => '08:00', 'EndTime' => '09:30', 'RoomName' => 'Room '.($i + 1)]);
-            foreach (array_slice($students, $i * 10, 10) as $j => $studentId) DB::table('StudentMarks')->insert([
-                'TenantId' => $tenantId, 'ExamId' => $examId, 'StudentId' => $studentId,
-                'MarksObtained' => 45 + (($j * 7 + $i) % 51), 'Grade' => $j > 6 ? 'A' : 'B',
-                'Remarks' => 'Demo result', 'EnteredByUserId' => $adminId, 'Status' => 'Published', 'CreatedAt' => $now,
-            ]);
+            foreach (array_slice($students, $i * 10, 10) as $j => $studentId) {
+                DB::table('StudentMarks')->insert([
+                    'TenantId' => $tenantId, 'ExamId' => $examId, 'StudentId' => $studentId,
+                    'MarksObtained' => 45 + (($j * 7 + $i) % 51), 'Grade' => $j > 6 ? 'A' : 'B',
+                    'Remarks' => 'Demo result', 'EnteredByUserId' => $adminId, 'Status' => 'Published', 'CreatedAt' => $now,
+                ]);
+            }
         }
 
         $categoryIds = [];
-        foreach (['Utilities','Stationery','Maintenance'] as $name) $categoryIds[] = DB::table('ExpenseCategories')->insertGetId(['TenantId' => $tenantId, 'CategoryName' => $name], 'ExpenseCategoryId');
-        foreach ([120, 45, 80, 30, 65] as $i => $amount) DB::table('Expenses')->insert([
-            'TenantId' => $tenantId, 'BranchId' => $branchId, 'CategoryId' => $categoryIds[$i % 3], 'AccountId' => $accountIds[0],
-            'Amount' => $amount, 'Description' => ['Electricity and water','Books and pens','Classroom repair'][$i % 3],
-            'ExpenseDate' => now()->subDays($i * 3)->toDateString(), 'CreatedByUserId' => $adminId, 'Status' => 'Posted',
-        ]);
+        foreach (['Utilities', 'Stationery', 'Maintenance'] as $name) {
+            $categoryIds[] = DB::table('ExpenseCategories')->insertGetId(['TenantId' => $tenantId, 'CategoryName' => $name], 'ExpenseCategoryId');
+        }
+        foreach ([120, 45, 80, 30, 65] as $i => $amount) {
+            DB::table('Expenses')->insert([
+                'TenantId' => $tenantId, 'BranchId' => $branchId, 'CategoryId' => $categoryIds[$i % 3], 'AccountId' => $accountIds[0],
+                'Amount' => $amount, 'Description' => ['Electricity and water', 'Books and pens', 'Classroom repair'][$i % 3],
+                'ExpenseDate' => now()->subDays($i * 3)->toDateString(), 'CreatedByUserId' => $adminId, 'Status' => 'Posted',
+            ]);
+        }
         DB::table('Announcements')->insert(['TenantId' => $tenantId, 'Title' => 'Ku soo dhawaada sanad dugsiyeedka', 'Body' => 'Waxbarashadu waxay bilaabanaysaa waqtigeeda.', 'AudienceType' => 'All', 'PublishedAt' => $now, 'CreatedByUserId' => $adminId]);
         DB::table('Suggestions')->insert(['TenantId' => $tenantId, 'SubmittedByUserId' => $adminId, 'Category' => 'Suggestion', 'Priority' => 'Normal', 'Subject' => 'Maktabadda dugsiga', 'Description' => 'Buugaag dheeraad ah hala keeno.', 'IsAnonymous' => false, 'Status' => 'Open', 'CreatedAt' => $now]);
-        DB::table('SmsSettings')->insert(['TenantId' => $tenantId, 'ProviderName' => 'Demo SMS', 'SenderId' => 'MADAARIS', 'IsActive' => false]);
+        DB::table('SmsSettings')->insert(['TenantId' => $tenantId, 'ProviderName' => 'Demo SMS', 'SenderId' => 'MADAARIS', 'IsActive' => true]);
         DB::table('SmsTemplates')->insert(['TenantId' => $tenantId, 'TemplateName' => 'Absence Alert', 'TemplateBody' => 'Waalid, ardayga {student} maanta wuu maqnaa.']);
     }
 }

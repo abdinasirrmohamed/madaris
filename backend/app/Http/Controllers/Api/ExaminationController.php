@@ -125,6 +125,46 @@ class ExaminationController extends Controller
         return $this->ok($rows, 'Exam results retrieved.');
     }
 
+    public function report(Request $request, TenantContext $tenant): mixed
+    {
+        $filters = $request->validate(['ClassId' => ['required', 'integer'], 'ExamTypeId' => ['required', 'integer'], 'AcademicYearId' => ['required', 'integer']]);
+        $class = DB::table('Classes')->where('TenantId', $tenant->id())->whereIn('BranchId', $this->branchIds($tenant))->where('ClassId', $filters['ClassId'])->where('AcademicYearId', $filters['AcademicYearId'])->first();
+        abort_unless($class, 422, 'Class and academic year do not match.');
+        $type = DB::table('ExamTypes')->where('TenantId', $tenant->id())->where('ExamTypeId', $filters['ExamTypeId'])->first();
+        abort_unless($type, 422, 'Invalid exam type.');
+        $year = DB::table('AcademicYears')->where('TenantId', $tenant->id())->where('AcademicYearId', $filters['AcademicYearId'])->first();
+        abort_unless($year, 422, 'Invalid academic year.');
+
+        $exams = DB::table('Exams')->join('Subjects', 'Exams.SubjectId', '=', 'Subjects.SubjectId')
+            ->where('Exams.TenantId', $tenant->id())->where('Exams.ClassId', $filters['ClassId'])->where('Exams.ExamTypeId', $filters['ExamTypeId'])->where('Exams.AcademicYearId', $filters['AcademicYearId'])
+            ->select('Exams.ExamId', 'Exams.SubjectId', 'Exams.MaximumMark', 'Exams.PassMark', 'Subjects.SubjectName')->orderBy('Subjects.SubjectName')->get();
+
+        $students = DB::table('Enrollments')->join('Students', 'Enrollments.StudentId', '=', 'Students.StudentId')
+            ->leftJoin('StudentGuardians', function ($join) {$join->on('Students.StudentId', '=', 'StudentGuardians.StudentId')->where('StudentGuardians.IsPrimary', true);})
+            ->leftJoin('Guardians', 'StudentGuardians.GuardianId', '=', 'Guardians.GuardianId')
+            ->where('Enrollments.TenantId', $tenant->id())->where('Enrollments.ClassId', $filters['ClassId'])->where('Enrollments.AcademicYearId', $filters['AcademicYearId'])->where('Enrollments.Status', 'Active')
+            ->select('Students.StudentId', 'Students.AdmissionNo', 'Students.FirstName', 'Students.MiddleName', 'Students.LastName', 'Students.Phone', 'Students.Address', 'Students.DateOfBirth', 'Students.WelfareStatus', 'Students.PhotoPath', 'Guardians.FullName as GuardianName', 'Guardians.PrimaryPhone as GuardianPhone', 'Guardians.Relationship')->orderBy('Students.FirstName')->orderBy('Students.LastName')->get();
+        $marks = DB::table('StudentMarks')->where('TenantId', $tenant->id())->whereIn('ExamId', $exams->pluck('ExamId'))->get()->keyBy(fn ($mark) => $mark->StudentId.'-'.$mark->ExamId);
+        $maximum = (float) $exams->sum('MaximumMark');
+        $passTotal = (float) $exams->sum('PassMark');
+        $rows = $students->map(function ($student) use ($exams, $marks, $maximum, $passTotal) {
+            $subjectMarks = [];$total = 0.0;$completed = 0;
+            foreach ($exams as $exam) {
+                $mark = $marks->get($student->StudentId.'-'.$exam->ExamId);
+                $value = $mark ? (float) $mark->MarksObtained : null;
+                $subjectMarks[] = ['ExamId' => $exam->ExamId, 'SubjectId' => $exam->SubjectId, 'SubjectName' => $exam->SubjectName, 'Mark' => $value, 'MaximumMark' => (float) $exam->MaximumMark];
+                if ($value !== null) {$total += $value;$completed++;}
+            }
+            $percentage = $maximum > 0 ? round(($total / $maximum) * 100, 2) : 0;
+            return [...(array) $student, 'Subjects' => $subjectMarks, 'Total' => round($total, 2), 'Average' => $exams->count() ? round($total / $exams->count(), 2) : 0, 'Percentage' => $percentage, 'Grade' => $this->grade($percentage), 'Status' => $completed < $exams->count() ? 'Incomplete' : ($total >= $passTotal ? 'Passed' : 'Failed')];
+        })->sortByDesc('Percentage')->values();
+        $position = 0;$previous = null;
+        $rows = $rows->map(function ($row, $index) use (&$position, &$previous) {if ($previous === null || $row['Percentage'] !== $previous) $position = $index + 1;$row['Position'] = $position;$previous = $row['Percentage'];return $row;});
+
+        $school = DB::table('TenantSettings')->where('TenantId', $tenant->id())->first();
+        return $this->ok(['Class' => $class, 'ExamType' => $type, 'AcademicYear' => $year, 'School' => $school, 'Subjects' => $exams->map(fn ($exam) => ['ExamId' => $exam->ExamId, 'SubjectId' => $exam->SubjectId, 'SubjectName' => $exam->SubjectName, 'MaximumMark' => (float) $exam->MaximumMark])->values(), 'MaximumTotal' => $maximum, 'PassTotal' => $passTotal, 'Rows' => $rows], 'Exam report retrieved.');
+    }
+
     public function rankings(Request $request, TenantContext $tenant): mixed
     {
         $class = $request->validate(['ClassId' => ['required', 'integer'], 'AcademicYearId' => ['required', 'integer']]);
@@ -173,8 +213,16 @@ class ExaminationController extends Controller
 
     public function clearanceCard(int $student, TenantContext $tenant): mixed
     {
-        $row = DB::table('Students')->leftJoin('StudentClearances', 'Students.StudentId', '=', 'StudentClearances.StudentId')->where('Students.TenantId', $tenant->id())->whereIn('Students.BranchId', $this->branchIds($tenant))->where('Students.StudentId', $student)->select('Students.StudentId', 'Students.AdmissionNo', 'Students.FirstName', 'Students.LastName', 'StudentClearances.*')->orderByDesc('StudentClearanceId')->first();
+        $row = DB::table('Students')->leftJoin('StudentClearances', 'Students.StudentId', '=', 'StudentClearances.StudentId')->where('Students.TenantId', $tenant->id())->whereIn('Students.BranchId', $this->branchIds($tenant))->where('Students.StudentId', $student)->select('Students.StudentId', 'Students.BranchId', 'Students.AdmissionNo', 'Students.FirstName', 'Students.MiddleName', 'Students.LastName', 'StudentClearances.*')->orderByDesc('StudentClearanceId')->first();
         abort_unless($row, 404);
+        $enrollment = DB::table('Enrollments')->join('Classes', 'Enrollments.ClassId', '=', 'Classes.ClassId')->join('AcademicYears', 'Enrollments.AcademicYearId', '=', 'AcademicYears.AcademicYearId')->leftJoin('Shifts', 'Classes.ShiftId', '=', 'Shifts.ShiftId')->where('Enrollments.TenantId', $tenant->id())->where('Enrollments.StudentId', $student)->select('Enrollments.ClassId', 'Enrollments.AcademicYearId', 'Classes.Name as ClassName', 'Shifts.Name as ShiftName', 'AcademicYears.Name as AcademicYearName')->orderByRaw("CASE WHEN Enrollments.Status = 'Active' THEN 0 ELSE 1 END")->orderByDesc('Enrollments.EnrollmentId')->first();
+        $exam = $enrollment ? DB::table('Exams')->join('ExamTypes', 'Exams.ExamTypeId', '=', 'ExamTypes.ExamTypeId')->leftJoin('ExamSchedules', 'Exams.ExamId', '=', 'ExamSchedules.ExamId')->where('Exams.TenantId', $tenant->id())->where('Exams.ClassId', $enrollment->ClassId)->where('Exams.AcademicYearId', $enrollment->AcademicYearId)->select('ExamTypes.TypeName as ExamTypeName', 'ExamSchedules.RoomName')->orderByDesc('Exams.ExamId')->first() : null;
+        foreach ((array) $enrollment as $key => $value) $row->{$key} = $value;
+        $row->ExamTypeName = $exam->ExamTypeName ?? 'General Examination';
+        $row->RoomName = $exam->RoomName ?? ($row->RoomName ?? '—');
+        $row->School = DB::table('TenantSettings')->where('TenantId', $tenant->id())->first();
+        $row->ValidFrom = now()->toDateString();
+        $row->ValidUntil = now()->addDays(7)->toDateString();
         $row->OutstandingBalance = (float) DB::table('Invoices')->where('TenantId', $tenant->id())->where('StudentId', $student)->sum('Balance');
         $row->FinanceCleared = (bool) $row->FinanceCleared && $row->OutstandingBalance === 0.0;
         $row->Status = collect(['AcademicCleared', 'QuranCleared', 'FinanceCleared', 'DisciplineCleared', 'AssetsCleared'])->every(fn ($field) => (bool) $row->{$field}) ? 'Cleared' : 'Pending';
@@ -193,6 +241,11 @@ class ExaminationController extends Controller
     private function branchIds(TenantContext $tenant): array
     {
         return DB::table('UserBranches')->where('TenantId', $tenant->id())->where('UserId', $tenant->user()->UserId)->pluck('BranchId')->map(fn ($id) => (int) $id)->all();
+    }
+
+    private function grade(float $percentage): string
+    {
+        return match (true) {$percentage >= 90 => 'A+', $percentage >= 80 => 'A', $percentage >= 70 => 'B', $percentage >= 60 => 'C', $percentage >= 50 => 'D', default => 'F'};
     }
 
     private function audit(TenantContext $tenant, string $action, string $entity, int $id, array $after): void

@@ -1,7 +1,8 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { ApiService } from '../core/api.service';
+import { DialogService } from '../core/dialog.service';
 
 type Resource =
   'academic-years' | 'levels' | 'shifts' | 'subjects' | 'lessons' | 'classes' | 'timetables';
@@ -48,7 +49,7 @@ type Resource =
                 <tr>
                   @if (resource() === 'levels') {
                     <td>{{ index + 1 }}</td><td class="level-name">{{ row.Name }}</td>
-                    <td class="level-price">$ {{ money(row.LevelPrice) }}</td>
+                    <td class="level-price"><div class="price-editor"><span>$</span><input #priceInput type="number" min="0" step="0.01" [value]="money(row.LevelPrice)" /><button type="button" (click)="saveLevelPrice(row, priceInput.value)">Save</button></div></td>
                     <td><span class="count-badge classes-badge">{{ row.ClassesCount || 0 }} {{ row.ClassesCount === 1 ? 'Class' : 'Classes' }}</span></td>
                     <td><span class="count-badge students-badge">{{ row.StudentsCount || 0 }} {{ row.StudentsCount === 1 ? 'Student' : 'Students' }}</span></td>
                   } @else {
@@ -98,6 +99,7 @@ type Resource =
                     >Promotion score<input type="number" formControlName="MinimumPromotionScore"
                   /></label>
                 </div>
+                <label>Level price<input type="number" min="0" step="0.01" formControlName="LevelPrice" placeholder="0.00" /></label>
               }
               @case ('shifts') {
                 <label>Shift name<input formControlName="Name" placeholder="Morning" /></label>
@@ -362,6 +364,7 @@ type Resource =
       .levels-table th { color:#11133f; font-weight:800; text-transform:uppercase; letter-spacing:.02em; }
       .levels-table td { padding-top:12px; padding-bottom:12px; }
       .levels-table .level-name, .levels-table .level-price { color:#08085b; font-weight:800; }
+      .price-editor{display:flex;align-items:center;gap:5px}.price-editor input{width:95px;padding:7px 8px;border:1px solid #cbdcec;border-radius:6px;color:#08085b;font-weight:800;background:#fff}.price-editor button{padding:7px 9px;border:0;border-radius:6px;background:#16835f;color:white;font-size:9px;font-weight:800;cursor:pointer}
       .levels-table .action-heading, .levels-table .actions { text-align:right; white-space:nowrap; }
       .count-badge { display:inline-block; border-radius:16px; padding:6px 10px; font-size:9px; font-weight:800; }
       .classes-badge { background:#dff3ff; color:#075d91; }
@@ -487,6 +490,7 @@ type Resource =
   ],
 })
 export class AcademicComponent implements OnInit {
+  private dialog = inject(DialogService);
   tabs: { key: Resource; label: string }[] = [
     { key: 'academic-years', label: 'Academic Years' },
     { key: 'levels', label: 'Levels' },
@@ -571,6 +575,7 @@ export class AcademicComponent implements OnInit {
         ['Code', 'Code'],
         ['SequenceNo', 'Sequence'],
         ['MinimumPromotionScore', 'Promotion score'],
+        ['LevelPrice', 'Level price'],
         ['Status', 'Status'],
       ],
       shifts: [
@@ -690,6 +695,7 @@ export class AcademicComponent implements OnInit {
         add('Code');
         add('SequenceNo', 1);
         add('MinimumPromotionScore', 50);
+        add('LevelPrice', 0);
         add('Status', 'Active');
         break;
       case 'shifts':
@@ -761,8 +767,30 @@ export class AcademicComponent implements OnInit {
       },
     });
   }
-  remove(row: any) {
-    if (!confirm('Delete this record?')) return;
+  saveLevelPrice(row: any, value: string) {
+    const LevelPrice = Number(value);
+    if (!Number.isFinite(LevelPrice) || LevelPrice < 0) {
+      this.message.set('Enter a valid level price.');
+      return;
+    }
+    this.api.put<any>(`/academic/levels/${row.LevelId}`, {
+      Name: row.Name,
+      Code: row.Code,
+      SequenceNo: Number(row.SequenceNo),
+      MinimumPromotionScore: Number(row.MinimumPromotionScore),
+      LevelPrice,
+      Status: row.Status,
+    }).subscribe({
+      next: (response) => {
+        this.message.set(`Price for ${row.Name} updated to $${this.money(response.data.LevelPrice)}.`);
+        this.load();
+        this.loadReferences();
+      },
+      error: (e) => this.message.set(e.error?.message || 'Level price could not be saved.'),
+    });
+  }
+  async remove(row: any) {
+    if (!await this.dialog.confirm('Delete record', 'Delete this record?', true)) return;
     this.api.delete<any>('/academic/' + this.resource() + '/' + this.identity(row)).subscribe({
       next: (r) => {
         this.message.set(r.message);

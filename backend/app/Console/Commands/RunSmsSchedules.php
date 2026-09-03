@@ -1,0 +1,7 @@
+<?php
+namespace App\Console\Commands;
+use App\Services\Sms\SmsManager;use Carbon\Carbon;use Illuminate\Console\Command;use Illuminate\Support\Facades\Cache;use Illuminate\Support\Facades\DB;use Throwable;
+class RunSmsSchedules extends Command{
+ protected $signature='sms:run-schedules';protected $description='Queue due automatic SMS fee reminder schedules';
+ public function handle(SmsManager $manager):int{$lock=Cache::lock('madaaris:sms-schedules',300);if(!$lock->get())return self::SUCCESS;try{foreach(DB::table('SmsSchedules')->where('IsEnabled',true)->get() as $s){$now=now($s->Timezone);if((int)$now->day!==(int)$s->DayOfMonth||$now->format('H:i')<substr($s->SendTime,0,5)||($s->LastRunAt&&Carbon::parse($s->LastRunAt)->timezone($s->Timezone)->isSameDay($now)))continue;$filters=['PaymentStatus'=>'all_outstanding'];foreach(['ClassIds'=>'ClassId','LevelIds'=>'LevelId','ShiftIds'=>'ShiftId','FeeTypeIds'=>'FeeTypeId'] as $column=>$field){$values=json_decode($s->$column??'[]',true);if(count($values??[])===1)$filters[$field]=$values[0];}try{$manager->queue($s->TenantId,$s->CreatedByUserId,['SmsTemplateId'=>$s->SmsTemplateId,'CombineSiblings'=>(bool)$s->CombineSiblings,'Filters'=>$filters],'scheduled_fee_reminder');DB::table('SmsSchedules')->where('SmsScheduleId',$s->SmsScheduleId)->update(['LastRunAt'=>now(),'NextRunAt'=>$now->copy()->addMonthNoOverflow()->day($s->DayOfMonth)->setTimeFromTimeString($s->SendTime)->utc(),'UpdatedAt'=>now()]);}catch(Throwable $e){report($e);}}}finally{$lock->release();}return self::SUCCESS;}
+}

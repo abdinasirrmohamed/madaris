@@ -4,6 +4,7 @@ use App\Domains\Students\Controllers\StudentDirectoryController;
 use App\Http\Controllers\Api\StudentController;
 use App\Http\Controllers\Api\StudentLifecycleController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\ParentPortalController;
 
 Route::get('students', [StudentController::class, 'index'])->middleware('permission:students.view');
 Route::get('students/{student}', [StudentController::class, 'show'])->middleware('permission:students.view');
@@ -21,5 +22,6 @@ Route::post('students/{student}/documents', [StudentLifecycleController::class, 
 Route::get('students/{student}/documents/{document}', [StudentLifecycleController::class, 'download'])->middleware('permission:students.view');
 Route::get('guardians', [StudentDirectoryController::class, 'guardians'])->middleware('permission:students.view');
 Route::post('guardians/{guardian}/students', [StudentDirectoryController::class, 'linkGuardian'])->middleware('permission:students.update');
+Route::put('guardians/{guardian}/portal', [ParentPortalController::class, 'enable'])->middleware('permission:students.update');
 Route::match(['get', 'post'], 'discipline', [StudentDirectoryController::class, 'discipline'])->middleware('permission:students.update');
 Route::put('discipline/{discipline}', [StudentDirectoryController::class, 'resolve'])->middleware('permission:students.update');

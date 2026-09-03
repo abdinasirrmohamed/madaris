@@ -12,13 +12,19 @@ class StudentDirectoryController extends Controller
 {
     public function guardians(Request $request, TenantContext $tenant)
     {
-        $rows = DB::table('Guardians')->where('TenantId', $tenant->id())->when($request->string('search')->toString(), fn ($q, $v) => $q->where(fn ($x) => $x->where('FullName', 'like', "%{$v}%")->orWhere('PrimaryPhone', 'like', "%{$v}%")))->orderBy('FullName')->get();
+        $search=mb_strtolower(trim($request->string('search')->toString()));
+        $rows = DB::table('Guardians')->where('TenantId', $tenant->id())->orderBy('FullName')->get();
         $links = DB::table('StudentGuardians')->join('Students', 'StudentGuardians.StudentId', '=', 'Students.StudentId')->where('StudentGuardians.TenantId', $tenant->id())->select('StudentGuardians.*', 'Students.AdmissionNo', 'Students.FirstName', 'Students.LastName')->get()->groupBy('GuardianId');
-        $rows->transform(function ($guardian) use ($links) {
-            $guardian->Students = $links->get($guardian->GuardianId, collect())->values();
-
+        $rows=$rows->groupBy(fn($guardian)=>mb_strtolower(trim(preg_replace('/\s+/u',' ',$guardian->FullName))))->map(function($group)use($links){
+            $guardian=$group->sortByDesc(fn($row)=>(int)!empty($row->UserId))->first();
+            $ids=$group->pluck('GuardianId')->values();
+            $guardian->GuardianIds=$ids;
+            $guardian->DuplicateCount=$ids->count();
+            $guardian->Phones=$group->pluck('PrimaryPhone')->filter()->unique()->values();
+            $guardian->Emails=$group->pluck('Email')->filter()->unique()->values();
+            $guardian->Students=$ids->flatMap(fn($id)=>$links->get($id,collect()))->unique('StudentId')->values();
             return $guardian;
-        });
+        })->values()->when($search,fn($groups)=>$groups->filter(fn($guardian)=>str_contains(mb_strtolower($guardian->FullName.' '.$guardian->Phones->join(' ').' '.$guardian->Emails->join(' ')),$search))->values());
 
         return $this->ok($rows, 'Guardians retrieved.');
     }
@@ -31,6 +37,9 @@ class StudentDirectoryController extends Controller
         if ($data['IsPrimary'] ?? false) {
             DB::table('StudentGuardians')->where('TenantId', $tenant->id())->where('StudentId', $data['StudentId'])->update(['IsPrimary' => false]);
         }DB::table('StudentGuardians')->updateOrInsert(['TenantId' => $tenant->id(), 'StudentId' => $data['StudentId'], 'GuardianId' => $guardian], ['IsPrimary' => $data['IsPrimary'] ?? false, 'IsFeeResponsible' => $data['IsFeeResponsible'] ?? false]);
+        $parentUserId=DB::table('Guardians')->where('TenantId',$tenant->id())->where('GuardianId',$guardian)->value('UserId');
+        $studentBranchId=DB::table('Students')->where('TenantId',$tenant->id())->where('StudentId',$data['StudentId'])->value('BranchId');
+        if($parentUserId&&$studentBranchId)DB::table('UserBranches')->updateOrInsert(['TenantId'=>$tenant->id(),'UserId'=>$parentUserId,'BranchId'=>$studentBranchId],[]);
         $this->audit($tenant, 'Link', 'StudentGuardians', $guardian, $data);
 
         return $this->ok((object) [], 'Guardian linked to student.');

@@ -572,7 +572,8 @@ export class QuranComponent implements OnInit {
   ngOnInit() {
     this.route.paramMap.subscribe((params) => {
       const view = params.get('view');
-      const next = ['assignments', 'progress', 'mistakes', 'surahs'].includes(view || '') ? view! : 'assignments';
+      const aliases:Record<string,string>={memorization:'assignments','memorization-records':'assignments','memorization-reports':'progress',farbar:'assignments',subac:'assignments',dareeris:'assignments',lessons:'assignments',examinations:'progress',reports:'progress'};
+      const next = ['assignments', 'progress', 'mistakes', 'surahs'].includes(view || '') ? view! : aliases[view || ''] || 'assignments';
       this.tab.set(next);
       if (next === 'assignments') this.loadAssignments();
       if (next === 'progress') this.loadProgress();

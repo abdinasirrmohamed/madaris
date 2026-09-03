@@ -5,4 +5,5 @@
 /backend/storage/*.key
 /composer.phar
 *.log
+database.sql
 .idea/
